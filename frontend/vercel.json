@@ -1,0 +1,10 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/agendar", "destination": "/agendar.html" },
+    { "source": "/meus-agendamentos", "destination": "/meus-agendamentos.html" },
+    { "source": "/admin", "destination": "/admin/login.html" },
+    { "source": "/admin/dashboard", "destination": "/admin/dashboard.html" }
+  ]
+}
