@@ -20,6 +20,7 @@ const appointmentRoutes = require('./routes/appointments');
 const userRoutes = require('./routes/users');
 const clienteRoutes = require('./routes/cliente');
 const seedRoutes = require('./routes/seed');
+const { seedarBanco } = require('./routes/seed');
 
 /** Instancia do servidor Express */
 const app = express();
@@ -73,6 +74,7 @@ async function iniciar() {
   try {
     await sequelize.sync();
     console.log('Banco de dados sincronizado');
+    await seedarBanco();
     app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
   } catch (error) {
     console.error('Erro ao iniciar:', error);

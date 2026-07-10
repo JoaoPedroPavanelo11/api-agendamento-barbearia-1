@@ -5,6 +5,7 @@
  */
 
 const { Barber } = require('../models');
+const { stripHtml } = require('../helpers/sanitize');
 
 /**
  * Lista apenas os barbeiros ativos (rota publica).
@@ -48,7 +49,7 @@ exports.listarTodos = async (req, res) => {
 exports.criar = async (req, res) => {
   try {
     const { nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo } = req.body;
-    const barbeiro = await Barber.create({ nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo });
+    const barbeiro = await Barber.create({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
     res.status(201).json(barbeiro);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao criar barbeiro' });
@@ -74,7 +75,7 @@ exports.atualizar = async (req, res) => {
     const barbeiro = await Barber.findByPk(req.params.id);
     if (!barbeiro) return res.status(404).json({ erro: 'Barbeiro nao encontrado' });
     const { nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo } = req.body;
-    await barbeiro.update({ nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo });
+    await barbeiro.update({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
     res.json(barbeiro);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao atualizar' });

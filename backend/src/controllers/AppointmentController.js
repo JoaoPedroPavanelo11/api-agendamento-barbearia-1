@@ -6,6 +6,7 @@
  */
 
 const { Appointment, User, Barber, Service } = require('../models');
+const { stripHtml } = require('../helpers/sanitize');
 
 /**
  * Lista todos os agendamentos (acesso admin).
@@ -36,28 +37,6 @@ exports.listar = async (req, res) => {
       { model: Service, as: 'servico', attributes: ['id', 'nome', 'preco', 'duracao'] },
     ],
     order: [['data', 'ASC'], ['hora', 'ASC']],
-  });
-
-  res.json(agendamentos);
-};
-
-/**
- * Lista os agendamentos do usuario logado.
- *
- * @async
- * @function meusAgendamentos
- * @param {Object} req - Request do Express (req.usuario contem o id)
- * @param {Object} res - Response do Express
- * @returns {Object} 200 - Lista de agendamentos do cliente
- */
-exports.meusAgendamentos = async (req, res) => {
-  const agendamentos = await Appointment.findAll({
-    where: { clienteId: req.usuario.id },
-    include: [
-      { model: Barber, as: 'barbeiro', attributes: ['id', 'nome'] },
-      { model: Service, as: 'servico', attributes: ['id', 'nome', 'preco', 'duracao'] },
-    ],
-    order: [['data', 'DESC'], ['hora', 'DESC']],
   });
 
   res.json(agendamentos);
@@ -114,7 +93,7 @@ exports.criar = async (req, res) => {
       hora,
       barbeiroId,
       servicoId,
-      observacao,
+      observacao: stripHtml(observacao || ''),
       clienteId: req.usuario.id,
     });
 

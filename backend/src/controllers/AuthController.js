@@ -8,6 +8,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { stripHtml } = require('../helpers/sanitize');
 
 /**
  * Realiza o login do usuario.
@@ -81,7 +82,7 @@ exports.cadastrar = async (req, res) => {
     if (existe) return res.status(400).json({ erro: 'Email ja cadastrado' });
 
     const senhaHash = await bcrypt.hash(senha, 10);
-    const usuario = await User.create({ nome, email, senha: senhaHash, telefone, role: 'cliente' });
+    const usuario = await User.create({ nome: stripHtml(nome), email, senha: senhaHash, telefone: stripHtml(telefone || ''), role: 'cliente' });
 
     res.status(201).json({ id: usuario.id, nome: usuario.nome, email: usuario.email, role: usuario.role });
   } catch (error) {

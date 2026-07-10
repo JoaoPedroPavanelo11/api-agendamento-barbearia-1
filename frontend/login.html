@@ -110,7 +110,21 @@
                   <span class="input-group-text"><i class="bi bi-telephone"></i></span>
                   <input type="text" class="form-control form-control-lg" id="cadastroTelefone" placeholder="(11) 99999-8888" maxlength="16" required>
                 </div>
-                <div class="form-text">Sua senha sera criada com os ultimos 6 digitos do telefone.</div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Senha</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                  <input type="password" class="form-control form-control-lg" id="cadastroSenha" placeholder="Minimo 8 caracteres" minlength="8" required>
+                </div>
+                <div class="form-text">Minimo de 8 caracteres.</div>
+              </div>
+              <div class="mb-4">
+                <label class="form-label fw-semibold">Confirmar Senha</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                  <input type="password" class="form-control form-control-lg" id="cadastroSenhaConfirm" placeholder="Repita a senha" minlength="8" required>
+                </div>
               </div>
               <div id="erroCadastro" class="alert alert-danger d-none d-flex align-items-center gap-2">
                 <i class="bi bi-exclamation-triangle"></i> <span></span>
@@ -202,9 +216,18 @@
       const nome = document.getElementById('cadastroNome').value;
       const email = document.getElementById('cadastroEmail').value;
       const telefone = document.getElementById('cadastroTelefone').value;
-      const senha = telefone.replace(/\D/g, '').slice(-6);
+      const senha = document.getElementById('cadastroSenha').value;
+      const senhaConfirm = document.getElementById('cadastroSenhaConfirm').value;
       const erroEl = document.getElementById('erroCadastro');
       erroEl.classList.add('d-none');
+
+      if (senha !== senhaConfirm) {
+        erroEl.querySelector('span').textContent = 'Senhas nao conferem';
+        erroEl.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-person-plus"></i> Cadastrar e Entrar';
+        return;
+      }
 
       try {
         const cadastroRes = await fetch(`${API}/auth/cadastrar`, {

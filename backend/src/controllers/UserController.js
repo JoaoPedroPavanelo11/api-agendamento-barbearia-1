@@ -5,6 +5,7 @@
  */
 
 const { User } = require('../models');
+const { stripHtml } = require('../helpers/sanitize');
 
 /**
  * Lista todos os usuarios cadastrados (admin).
@@ -67,8 +68,8 @@ exports.atualizar = async (req, res) => {
     if (!usuario) return res.status(404).json({ erro: 'Usuario nao encontrado' });
 
     const dadosPermitidos = {};
-    if (req.body.nome) dadosPermitidos.nome = req.body.nome;
-    if (req.body.telefone) dadosPermitidos.telefone = req.body.telefone;
+    if (req.body.nome) dadosPermitidos.nome = stripHtml(req.body.nome);
+    if (req.body.telefone) dadosPermitidos.telefone = stripHtml(req.body.telefone);
     if (req.body.role && req.usuario.role === 'admin') dadosPermitidos.role = req.body.role;
 
     await usuario.update(dadosPermitidos);

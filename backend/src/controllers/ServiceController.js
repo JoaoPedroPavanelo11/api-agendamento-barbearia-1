@@ -5,6 +5,7 @@
  */
 
 const { Service } = require('../models');
+const { stripHtml } = require('../helpers/sanitize');
 
 /**
  * Lista apenas os servicos ativos (rota publica).
@@ -48,7 +49,7 @@ exports.listarTodos = async (req, res) => {
 exports.criar = async (req, res) => {
   try {
     const { nome, descricao, preco, duracao, ativo } = req.body;
-    const servico = await Service.create({ nome, descricao, preco, duracao, ativo });
+    const servico = await Service.create({ nome: stripHtml(nome), descricao: stripHtml(descricao || ''), preco, duracao, ativo });
     res.status(201).json(servico);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao criar servico' });
@@ -74,7 +75,7 @@ exports.atualizar = async (req, res) => {
     const servico = await Service.findByPk(req.params.id);
     if (!servico) return res.status(404).json({ erro: 'Servico nao encontrado' });
     const { nome, descricao, preco, duracao, ativo } = req.body;
-    await servico.update({ nome, descricao, preco, duracao, ativo });
+    await servico.update({ nome: stripHtml(nome), descricao: stripHtml(descricao || ''), preco, duracao, ativo });
     res.json(servico);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao atualizar' });

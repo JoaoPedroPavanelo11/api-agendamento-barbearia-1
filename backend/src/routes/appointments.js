@@ -15,8 +15,6 @@ const router = Router();
 router.get('/horarios', AppointmentController.horariosOcupados);
 /** GET /api/agendamentos - Lista todos os agendamentos (admin) */
 router.get('/', autenticar, adminOnly, AppointmentController.listar);
-/** GET /api/agendamentos/meus - Lista agendamentos do usuario logado (autenticado) */
-router.get('/meus', autenticar, AppointmentController.meusAgendamentos);
 /** POST /api/agendamentos - Cria novo agendamento (autenticado) */
 router.post('/', autenticar, AppointmentController.criar);
 /** PUT /api/agendamentos/:id/status - Atualiza status do agendamento (admin) */

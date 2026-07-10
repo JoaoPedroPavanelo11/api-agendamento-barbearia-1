@@ -51,7 +51,7 @@ exports.cancelarAgendamento = async (req, res) => {
     const agendamento = await Appointment.findByPk(req.params.id);
     if (!agendamento) return res.status(404).json({ erro: 'Agendamento nao encontrado' });
 
-    if (agendamento.clienteId !== req.usuario.id) {
+    if (Number(agendamento.clienteId) !== Number(req.usuario.id)) {
       return res.status(403).json({ erro: 'Este agendamento nao pertence a voce' });
     }
 
