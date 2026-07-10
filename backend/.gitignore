@@ -1,0 +1,8 @@
+.env
+node_modules
+package-lock.json
+package.json
+server_test_err.log
+server_test.log
+stderr.txt
+stdout.txt

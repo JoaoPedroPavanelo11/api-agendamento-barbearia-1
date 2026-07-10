@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Dashboard | Barbearia</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✂️</text></svg>">
+  <style>
+    :root { --sidebar-bg: #1a1a2e; }
+    body { background: #f4f6f9; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .sidebar {
+      background: var(--sidebar-bg); min-height: 100vh; color: white;
+      position: sticky; top: 0;
+    }
+    .sidebar .nav-link {
+      color: rgba(255,255,255,0.65); padding: 12px 20px;
+      border-radius: 10px; margin: 2px 10px;
+      transition: all 0.2s; font-size: 0.95rem;
+    }
+    .sidebar .nav-link:hover { background: rgba(255,255,255,0.08); color: white; }
+    .sidebar .nav-link.active { background: rgba(25,135,84,0.2); color: #00d68f; font-weight: 600; }
+    .sidebar .nav-link i { margin-right: 10px; width: 20px; text-align: center; }
+    .sidebar-brand { font-weight: 800; font-size: 1.3rem; letter-spacing: -0.5px; }
+    .sidebar-divider { border-color: rgba(255,255,255,0.1); }
+    .card-dashboard {
+      border: none; border-radius: 16px; transition: transform 0.2s, box-shadow 0.2s;
+      overflow: hidden;
+    }
+    .card-dashboard:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    .card-dashboard .card-body { padding: 25px; }
+    .card-dashboard .card-icon {
+      width: 50px; height: 50px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+    }
+    .aba { display: none; }
+    .aba.ativa { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .table th { font-weight: 600; color: #495057; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-status { font-size: 0.8rem; padding: 5px 12px; border-radius: 50px; font-weight: 500; }
+    .btn-action { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); display: none;
+      align-items: center; justify-content: center; z-index: 9998;
+    }
+    .loading-overlay.active { display: flex; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h2 { font-weight: 700; color: #1a1a2e; }
+    @media (max-width: 768px) { .sidebar { min-height: auto; position: static; } }
+    @media (max-width: 991.98px) { .sidebar-mobile-toggle { display: block !important; } }
+    @media (min-width: 992px) { .sidebar-mobile-toggle { display: none !important; } }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="text-center">
+      <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>
+      <p class="mt-2 text-muted">Carregando...</p>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="modal fade" id="modalConfirmacao" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content border-0 rounded-4">
+        <div class="modal-body text-center p-4">
+          <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
+          <h5 class="mt-3 fw-bold" id="confirmacaoTitulo">Confirmar</h5>
+          <p class="text-muted mb-0" id="confirmacaoMensagem">Tem certeza?</p>
+        </div>
+        <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger rounded-pill px-4" id="confirmacaoBtn">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div class="row">
+
+      <div class="col-lg-2 sidebar p-0">
+        <div class="d-flex flex-column h-100 p-3">
+          <div class="text-center py-3">
+            <h4 class="sidebar-brand"><i class="bi bi-scissors"></i> Barbearia</h4>
+          </div>
+          <hr class="sidebar-divider">
+          <p class="small text-secondary px-3 mb-2">Bem-vindo, <strong id="admin-nome" class="text-white"></strong></p>
+          <nav class="nav flex-column mb-auto">
+            <a class="nav-link active" href="#" onclick="mudarAba('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</a>
+            <a class="nav-link" href="#" onclick="mudarAba('agendamentos', this)"><i class="bi bi-calendar-check"></i> Agendamentos</a>
+            <a class="nav-link" href="#" onclick="mudarAba('servicos', this)"><i class="bi bi-scissors"></i> Servicos</a>
+            <a class="nav-link" href="#" onclick="mudarAba('barbeiros', this)"><i class="bi bi-people"></i> Barbeiros</a>
+            <a class="nav-link" href="#" onclick="mudarAba('clientes', this)"><i class="bi bi-person-circle"></i> Clientes</a>
+          </nav>
+          <hr class="sidebar-divider">
+          <a class="nav-link text-danger" href="#" onclick="sair()"><i class="bi bi-box-arrow-left"></i> Sair</a>
+        </div>
+      </div>
+
+      <div class="col-lg-10 p-4 p-lg-5">
+
+        <div id="aba-dashboard" class="aba ativa">
+          <div class="page-header">
+            <h2>Dashboard</h2>
+            <p class="text-muted">Visao geral do funcionamento da barbearia</p>
+          </div>
+          <div class="row g-4" id="cards-dashboard"></div>
+          <div class="card border-0 shadow-sm rounded-4 mt-4">
+            <div class="card-header bg-white border-0 rounded-4 pt-4 pb-0">
+              <h5 class="fw-bold"><i class="bi bi-calendar-day text-success"></i> Agendamentos de Hoje</h5>
+            </div>
+            <div class="card-body" id="hoje-container"><p class="text-muted">Carregando...</p></div>
+          </div>
+        </div>
+
+        <div id="aba-agendamentos" class="aba">
+          <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2>Agendamentos</h2>
+              <p class="text-muted">Gerencie todos os agendamentos</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <input type="date" class="form-control" id="filtro-data" style="max-width:160px;">
+              <select class="form-select" id="filtro-status" style="max-width:150px;">
+                <option value="">Todos status</option>
+                <option value="pendente">Pendente</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="cancelado">Cancelado</option>
+                <option value="concluido">Concluido</option>
+              </select>
+              <button class="btn btn-success rounded-pill px-3" onclick="carregarAgendamentos()"><i class="bi bi-search"></i> Filtrar</button>
+            </div>
+          </div>
+          <div id="agendamentos-container"><p class="text-muted">Carregando...</p></div>
+        </div>
+
+        <div id="aba-servicos" class="aba">
+          <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2>Servicos</h2>
+              <p class="text-muted">Gerencie os servicos oferecidos</p>
+            </div>
+            <button class="btn btn-success rounded-pill px-3" onclick="abrirModalServico()"><i class="bi bi-plus-lg"></i> Novo Servico</button>
+          </div>
+          <div id="servicos-container"><p class="text-muted">Carregando...</p></div>
+        </div>
+
+        <div id="aba-barbeiros" class="aba">
+          <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2>Barbeiros</h2>
+              <p class="text-muted">Gerencie os profissionais</p>
+            </div>
+            <button class="btn btn-success rounded-pill px-3" onclick="abrirModalBarbeiro()"><i class="bi bi-plus-lg"></i> Novo Barbeiro</button>
+          </div>
+          <div id="barbeiros-container"><p class="text-muted">Carregando...</p></div>
+        </div>
+
+        <div id="aba-clientes" class="aba">
+          <div class="page-header">
+            <h2>Clientes</h2>
+            <p class="text-muted">Lista de clientes cadastrados</p>
+          </div>
+          <div id="clientes-container"><p class="text-muted">Carregando...</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalServico" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 rounded-4">
+        <div class="modal-header bg-success text-white rounded-top-4 border-0">
+          <h5 class="modal-title fw-bold" id="modalServicoTitulo">Novo Servico</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="formServico">
+            <input type="hidden" id="servico-id">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nome</label>
+              <input type="text" class="form-control form-control-lg" id="servico-nome" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Descricao</label>
+              <textarea class="form-control" id="servico-descricao" rows="2"></textarea>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Preco (R$)</label>
+                <input type="number" step="0.01" class="form-control form-control-lg" id="servico-preco" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Duracao (min)</label>
+                <input type="number" class="form-control form-control-lg" id="servico-duracao" required>
+              </div>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input type="checkbox" class="form-check-input" id="servico-ativo" checked>
+              <label class="form-check-label fw-semibold">Ativo</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-0 pb-4">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-success rounded-pill px-4" onclick="salvarServico()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalBarbeiro" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 rounded-4">
+        <div class="modal-header bg-success text-white rounded-top-4 border-0">
+          <h5 class="modal-title fw-bold" id="modalBarbeiroTitulo">Novo Barbeiro</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="formBarbeiro">
+            <input type="hidden" id="barbeiro-id">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nome</label>
+              <input type="text" class="form-control form-control-lg" id="barbeiro-nome" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Dias de Trabalho</label>
+              <div class="d-flex flex-wrap gap-2" id="dias-checkbox">
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="0" id="dom"><label class="form-check-label" for="dom">Dom</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="1" id="seg"><label class="form-check-label" for="seg">Seg</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="2" id="ter"><label class="form-check-label" for="ter">Ter</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="3" id="qua"><label class="form-check-label" for="qua">Qua</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="4" id="qui"><label class="form-check-label" for="qui">Qui</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="5" id="sex"><label class="form-check-label" for="sex">Sex</label></div>
+                <div class="form-check"><input class="form-check-input dias-trabalho" type="checkbox" value="6" id="sab"><label class="form-check-label" for="sab">Sab</label></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Hora Inicio</label>
+                <input type="time" class="form-control form-control-lg" id="barbeiro-inicio" value="08:00">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Hora Fim</label>
+                <input type="time" class="form-control form-control-lg" id="barbeiro-fim" value="18:00">
+              </div>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input type="checkbox" class="form-check-input" id="barbeiro-ativo" checked>
+              <label class="form-check-label fw-semibold">Ativo</label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer border-0 pb-4">
+          <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-success rounded-pill px-4" onclick="salvarBarbeiro()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const API = '/api';
+    let servicos = [], barbeiros = [];
+    let confirmCallback = null;
+
+    function loading(show) {
+      document.getElementById('loadingOverlay').classList.toggle('active', show);
+    }
+
+    function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+    function toast(mensagem, tipo = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-bg-${tipo} border-0 show`;
+      toast.role = 'alert';
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body"><i class="bi bi-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle'}"></i> ${mensagem}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 5000);
+    }
+
+    function confirmar(titulo, mensagem, callback) {
+      document.getElementById('confirmacaoTitulo').textContent = titulo;
+      document.getElementById('confirmacaoMensagem').textContent = mensagem;
+      confirmCallback = callback;
+      const modal = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+      document.getElementById('confirmacaoBtn').onclick = function() {
+        modal.hide();
+        if (confirmCallback) confirmCallback();
+      };
+      modal.show();
+    }
+
+    function getToken() {
+      const token = localStorage.getItem('token');
+      if (!token) { location.href = '/admin/login.html'; }
+      return token;
+    }
+
+    async function api(method, url, body = null) {
+      const token = getToken();
+      const opts = {
+        method,
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`${API}${url}`, opts);
+      if (res.status === 401) { localStorage.clear(); location.href = '/admin/login.html'; }
+      if (!res.ok) { let errMsg; try { const err = await res.json(); errMsg = err.erro || 'Erro na requisicao'; } catch { errMsg = 'Erro na requisicao'; } throw new Error(errMsg); }
+      return res.json();
+    }
+
+    function mudarAba(aba, el) {
+      document.querySelectorAll('.aba').forEach(a => a.classList.remove('ativa'));
+      document.getElementById(`aba-${aba}`).classList.add('ativa');
+      document.querySelectorAll('.sidebar .nav-link').forEach(a => a.classList.remove('active'));
+      if (el) el.classList.add('active');
+      if (aba === 'dashboard') carregarDashboard();
+      if (aba === 'agendamentos') carregarAgendamentos();
+      if (aba === 'servicos') carregarServicos();
+      if (aba === 'barbeiros') carregarBarbeiros();
+      if (aba === 'clientes') carregarClientes();
+    }
+
+    function sair() {
+      localStorage.clear();
+      location.href = '/admin/login.html';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      getToken();
+      const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+      document.getElementById('admin-nome').textContent = usuario.nome || 'Admin';
+      carregarDashboard();
+    });
+
+    async function carregarDashboard() {
+      loading(true);
+      try {
+        const todosAgendamentos = await api('GET', '/agendamentos');
+        const hoje = new Date().toISOString().split('T')[0];
+        const agendamentosHoje = todosAgendamentos.filter(a => a.data === hoje);
+        const [servicosRes, usuariosRes] = await Promise.all([
+          api('GET', '/servicos/todos'),
+          api('GET', '/usuarios')
+        ]);
+
+        document.getElementById('cards-dashboard').innerHTML = `
+          <div class="col-md-6 col-xl-3">
+            <div class="card card-dashboard shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <p class="text-muted mb-1 small fw-semibold text-uppercase">Agendamentos Hoje</p>
+                    <h2 class="fw-bold mb-0 text-success">${agendamentosHoje.length}</h2>
+                  </div>
+                  <div class="card-icon bg-success bg-opacity-10 text-success"><i class="bi bi-calendar-check"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="card card-dashboard shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <p class="text-muted mb-1 small fw-semibold text-uppercase">Pendentes</p>
+                    <h2 class="fw-bold mb-0 text-warning">${todosAgendamentos.filter(a => a.status === 'pendente').length}</h2>
+                  </div>
+                  <div class="card-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-hourglass-split"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="card card-dashboard shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <p class="text-muted mb-1 small fw-semibold text-uppercase">Servicos</p>
+                    <h2 class="fw-bold mb-0 text-info">${servicosRes.length}</h2>
+                  </div>
+                  <div class="card-icon bg-info bg-opacity-10 text-info"><i class="bi bi-scissors"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 col-xl-3">
+            <div class="card card-dashboard shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <p class="text-muted mb-1 small fw-semibold text-uppercase">Clientes</p>
+                    <h2 class="fw-bold mb-0 text-primary">${usuariosRes.filter(u => u.role === 'cliente').length}</h2>
+                  </div>
+                  <div class="card-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-people"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        if (agendamentosHoje.length === 0) {
+          document.getElementById('hoje-container').innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-calendar-check" style="font-size:2rem;"></i><p class="mt-2 mb-0">Nenhum agendamento para hoje</p></div>';
+        } else {
+          document.getElementById('hoje-container').innerHTML = `
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead><tr><th>Hora</th><th>Cliente</th><th>Barbeiro</th><th>Servico</th><th>Status</th></tr></thead>
+                <tbody>
+                  ${agendamentosHoje.map(a => {
+                    const statusBg = a.status === 'confirmado' ? 'success' : a.status === 'cancelado' ? 'danger' : a.status === 'concluido' ? 'secondary' : 'warning';
+                    return `
+                      <tr>
+                        <td class="fw-bold">${esc(a.hora)}</td>
+                        <td>${esc(a.cliente?.nome || '-')}</td>
+                        <td>${esc(a.barbeiro?.nome || '-')}</td>
+                        <td>${esc(a.servico?.nome || '-')}</td>
+                        <td><span class="badge bg-${statusBg} badge-status">${esc(a.status)}</span></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+      } catch (err) {
+        document.getElementById('hoje-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+
+    async function carregarAgendamentos() {
+      loading(true);
+      try {
+        let url = '/agendamentos';
+        const params = new URLSearchParams();
+        const data = document.getElementById('filtro-data').value;
+        const status = document.getElementById('filtro-status').value;
+        if (data) params.append('data', data);
+        if (status) params.append('status', status);
+        if (params.toString()) url += '?' + params.toString();
+
+        const agendamentos = await api('GET', url);
+        const container = document.getElementById('agendamentos-container');
+
+        if (agendamentos.length === 0) {
+          container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox" style="font-size:3rem;"></i><p class="mt-3 mb-0">Nenhum agendamento encontrado</p></div>';
+          loading(false);
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="table-responsive">
+            <table class="table table-hover align-middle bg-white rounded-4 shadow-sm overflow-hidden">
+              <thead class="table-dark">
+                <tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Telefone</th><th>Barbeiro</th><th>Servico</th><th>Valor</th><th>Status</th><th>Acoes</th></tr>
+              </thead>
+              <tbody>
+                ${agendamentos.map(a => {
+                  const statusBg = a.status === 'confirmado' ? 'success' : a.status === 'cancelado' ? 'danger' : a.status === 'concluido' ? 'secondary' : 'warning';
+                  return `
+                  <tr>
+                    <td>${esc(new Date(a.data + 'T12:00:00').toLocaleDateString('pt-BR'))}</td>
+                    <td class="fw-bold">${esc(a.hora)}</td>
+                    <td>${esc(a.cliente?.nome || '-')}</td>
+                    <td>${esc(a.cliente?.telefone || '-')}</td>
+                    <td>${esc(a.barbeiro?.nome || '-')}</td>
+                    <td>${esc(a.servico?.nome || '-')}</td>
+                    <td class="fw-bold text-success">R$ ${esc((a.servico?.preco || 0).toFixed(2))}</td>
+                    <td><span class="badge bg-${statusBg} badge-status">${esc(a.status)}</span></td>
+                    <td>
+                      <div class="dropdown d-inline">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle rounded-pill" data-bs-toggle="dropdown">Status</button>
+                        <ul class="dropdown-menu">
+                          <li><a class="dropdown-item" href="#" onclick="alterarStatus(${a.id}, 'confirmado')"><i class="bi bi-check-circle text-success"></i> Confirmar</a></li>
+                          <li><a class="dropdown-item" href="#" onclick="alterarStatus(${a.id}, 'concluido')"><i class="bi bi-check-all text-secondary"></i> Concluir</a></li>
+                          <li><hr class="dropdown-divider"></li>
+                          <li><a class="dropdown-item text-danger" href="#" onclick="alterarStatus(${a.id}, 'cancelado')"><i class="bi bi-x-circle"></i> Cancelar</a></li>
+                        </ul>
+                      </div>
+                      <button class="btn btn-sm btn-outline-danger rounded-pill ms-1" onclick="deletarAgendamento(${a.id})"><i class="bi bi-trash"></i></button>
+                    </td>
+                  </tr>
+                `}).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('agendamentos-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+
+    async function alterarStatus(id, status) {
+      try {
+        await api('PUT', `/agendamentos/${id}/status`, { status });
+        carregarAgendamentos();
+        carregarDashboard();
+        toast('Status atualizado com sucesso!');
+      } catch (err) { toast(err.message, 'danger'); }
+    }
+
+    function deletarAgendamento(id) {
+      confirmar('Remover Agendamento', 'Tem certeza que deseja remover este agendamento? Esta acao nao pode ser desfeita.', async () => {
+        try {
+          await api('DELETE', `/agendamentos/${id}`);
+          carregarAgendamentos();
+          carregarDashboard();
+          toast('Agendamento removido com sucesso!');
+        } catch (err) { toast(err.message, 'danger'); }
+      });
+    }
+
+    async function carregarServicos() {
+      loading(true);
+      try {
+        servicos = await api('GET', '/servicos/todos');
+        const container = document.getElementById('servicos-container');
+        if (servicos.length === 0) {
+          container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-scissors" style="font-size:3rem;"></i><p class="mt-3 mb-0">Nenhum servico cadastrado</p></div>';
+          loading(false);
+          return;
+        }
+        container.innerHTML = `
+          <div class="table-responsive">
+            <table class="table table-hover align-middle bg-white rounded-4 shadow-sm overflow-hidden">
+              <thead class="table-dark"><tr><th>Nome</th><th>Descricao</th><th>Preco</th><th>Duracao</th><th>Ativo</th><th>Acoes</th></tr></thead>
+              <tbody>
+                ${servicos.map(s => `
+                  <tr>
+                    <td class="fw-bold">${esc(s.nome)}</td>
+                    <td class="text-muted">${esc(s.descricao || '-')}</td>
+                    <td class="fw-bold text-success">R$ ${esc(s.preco.toFixed(2))}</td>
+                    <td>${esc(s.duracao)} min</td>
+                    <td>${s.ativo ? '<span class="badge bg-success bg-opacity-10 text-success">Sim</span>' : '<span class="badge bg-secondary bg-opacity-10 text-secondary">Nao</span>'}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="editarServico(${s.id})"><i class="bi bi-pencil"></i></button>
+                      <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deletarServico(${s.id})"><i class="bi bi-trash"></i></button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('servicos-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+
+    function abrirModalServico(dados = null) {
+      document.getElementById('modalServicoTitulo').textContent = dados ? 'Editar Servico' : 'Novo Servico';
+      document.getElementById('servico-id').value = dados ? dados.id : '';
+      document.getElementById('servico-nome').value = dados ? dados.nome : '';
+      document.getElementById('servico-descricao').value = dados ? dados.descricao || '' : '';
+      document.getElementById('servico-preco').value = dados ? dados.preco : '';
+      document.getElementById('servico-duracao').value = dados ? dados.duracao : '';
+      document.getElementById('servico-ativo').checked = dados ? dados.ativo : true;
+      new bootstrap.Modal(document.getElementById('modalServico')).show();
+    }
+
+    function editarServico(id) {
+      const s = servicos.find(s => s.id === id);
+      if (s) abrirModalServico(s);
+    }
+
+    async function salvarServico() {
+      const id = document.getElementById('servico-id').value;
+      const dados = {
+        nome: document.getElementById('servico-nome').value,
+        descricao: document.getElementById('servico-descricao').value,
+        preco: parseFloat(document.getElementById('servico-preco').value),
+        duracao: parseInt(document.getElementById('servico-duracao').value),
+        ativo: document.getElementById('servico-ativo').checked
+      };
+      try {
+        if (id) { await api('PUT', `/servicos/${id}`, dados); toast('Servico atualizado!'); }
+        else { await api('POST', '/servicos', dados); toast('Servico criado com sucesso!'); }
+        bootstrap.Modal.getInstance(document.getElementById('modalServico')).hide();
+        carregarServicos();
+      } catch (err) { toast(err.message, 'danger'); }
+    }
+
+    function deletarServico(id) {
+      confirmar('Remover Servico', 'Tem certeza que deseja remover este servico?', async () => {
+        try {
+          await api('DELETE', `/servicos/${id}`);
+          carregarServicos();
+          toast('Servico removido com sucesso!');
+        } catch (err) { toast(err.message, 'danger'); }
+      });
+    }
+
+    async function carregarBarbeiros() {
+      loading(true);
+      try {
+        barbeiros = await api('GET', '/barbeiros/todos');
+        const container = document.getElementById('barbeiros-container');
+        if (barbeiros.length === 0) {
+          container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-people" style="font-size:3rem;"></i><p class="mt-3 mb-0">Nenhum barbeiro cadastrado</p></div>';
+          loading(false);
+          return;
+        }
+        container.innerHTML = `
+          <div class="table-responsive">
+            <table class="table table-hover align-middle bg-white rounded-4 shadow-sm overflow-hidden">
+              <thead class="table-dark"><tr><th>Nome</th><th>Dias</th><th>Horario</th><th>Ativo</th><th>Acoes</th></tr></thead>
+              <tbody>
+                ${barbeiros.map(b => {
+                  const dias = b.dias_trabalho ? b.dias_trabalho.split(',').map(d => ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'][Number(d)]).join(', ') : '';
+                  return `
+                    <tr>
+                      <td class="fw-bold">${esc(b.nome)}</td>
+                      <td>${esc(dias || '-')}</td>
+                      <td>${esc(b.hora_inicio)} - ${esc(b.hora_fim)}</td>
+                      <td>${b.ativo ? '<span class="badge bg-success bg-opacity-10 text-success">Sim</span>' : '<span class="badge bg-secondary bg-opacity-10 text-secondary">Nao</span>'}</td>
+                      <td>
+                        <button class="btn btn-sm btn-outline-primary rounded-pill" onclick="editarBarbeiro(${b.id})"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger rounded-pill" onclick="deletarBarbeiro(${b.id})"><i class="bi bi-trash"></i></button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('barbeiros-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+
+    function abrirModalBarbeiro(dados = null) {
+      document.getElementById('modalBarbeiroTitulo').textContent = dados ? 'Editar Barbeiro' : 'Novo Barbeiro';
+      document.getElementById('barbeiro-id').value = dados ? dados.id : '';
+      document.getElementById('barbeiro-nome').value = dados ? dados.nome : '';
+      document.getElementById('barbeiro-inicio').value = dados ? dados.hora_inicio : '08:00';
+      document.getElementById('barbeiro-fim').value = dados ? dados.hora_fim : '18:00';
+      document.getElementById('barbeiro-ativo').checked = dados ? dados.ativo : true;
+      document.querySelectorAll('.dias-trabalho').forEach(c => c.checked = false);
+      if (dados && dados.dias_trabalho) {
+        dados.dias_trabalho.split(',').forEach(d => {
+          const cb = document.querySelector(`.dias-trabalho[value="${d}"]`);
+          if (cb) cb.checked = true;
+        });
+      }
+      new bootstrap.Modal(document.getElementById('modalBarbeiro')).show();
+    }
+
+    function editarBarbeiro(id) {
+      const b = barbeiros.find(b => b.id === id);
+      if (b) abrirModalBarbeiro(b);
+    }
+
+    async function salvarBarbeiro() {
+      const id = document.getElementById('barbeiro-id').value;
+      const diasSelecionados = [...document.querySelectorAll('.dias-trabalho:checked')].map(c => c.value).join(',');
+      const dados = {
+        nome: document.getElementById('barbeiro-nome').value,
+        dias_trabalho: diasSelecionados,
+        hora_inicio: document.getElementById('barbeiro-inicio').value,
+        hora_fim: document.getElementById('barbeiro-fim').value,
+        ativo: document.getElementById('barbeiro-ativo').checked
+      };
+      try {
+        if (id) { await api('PUT', `/barbeiros/${id}`, dados); toast('Barbeiro atualizado!'); }
+        else { await api('POST', '/barbeiros', dados); toast('Barbeiro criado com sucesso!'); }
+        bootstrap.Modal.getInstance(document.getElementById('modalBarbeiro')).hide();
+        carregarBarbeiros();
+      } catch (err) { toast(err.message, 'danger'); }
+    }
+
+    function deletarBarbeiro(id) {
+      confirmar('Remover Barbeiro', 'Tem certeza que deseja remover este barbeiro?', async () => {
+        try {
+          await api('DELETE', `/barbeiros/${id}`);
+          carregarBarbeiros();
+          toast('Barbeiro removido com sucesso!');
+        } catch (err) { toast(err.message, 'danger'); }
+      });
+    }
+
+    async function carregarClientes() {
+      loading(true);
+      try {
+        const usuarios = await api('GET', '/usuarios');
+        const clientes = usuarios.filter(u => u.role === 'cliente');
+        const container = document.getElementById('clientes-container');
+        if (clientes.length === 0) {
+          container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-people" style="font-size:3rem;"></i><p class="mt-3 mb-0">Nenhum cliente cadastrado</p></div>';
+          loading(false);
+          return;
+        }
+        container.innerHTML = `
+          <div class="table-responsive">
+            <table class="table table-hover align-middle bg-white rounded-4 shadow-sm overflow-hidden">
+              <thead class="table-dark"><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Cadastro</th></tr></thead>
+              <tbody>
+                ${clientes.map(c => `
+                  <tr>
+                    <td class="fw-bold">${esc(c.nome)}</td>
+                    <td>${esc(c.email)}</td>
+                    <td>${esc(c.telefone || '-')}</td>
+                    <td>${esc(new Date(c.createdAt).toLocaleDateString('pt-BR'))}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        document.getElementById('clientes-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+  </script>
+</body>
+</html>

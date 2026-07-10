@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agendar Horario - Barbearia</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✂️</text></svg>">
+  <style>
+    :root { --accent: #198754; --accent-hover: #157347; }
+    body { background: #f4f6f9; }
+    .navbar { backdrop-filter: blur(10px); background: rgba(26,26,46,0.95) !important; }
+    .navbar-brand { font-weight: 800; font-size: 1.5rem; letter-spacing: -0.5px; }
+    .step-indicator { display: flex; justify-content: center; margin-bottom: 30px; gap: 0; }
+    .step-wrapper { display: flex; flex-direction: column; align-items: center; position: relative; }
+    .step {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #e9ecef; display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: 1.1rem;
+      margin: 0 20px; position: relative; z-index: 1;
+      transition: all 0.3s ease;
+    }
+    .step.active { background: var(--accent); color: white; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(25,135,84,0.2); }
+    .step.completed { background: var(--accent); color: white; }
+    .step-connector {
+      position: absolute; top: 22px; left: calc(50% + 44px);
+      width: calc(100% - 44px); height: 2px; background: #e9ecef; z-index: 0;
+    }
+    .step-connector.completed { background: var(--accent); }
+    .step-label { font-size: 0.7rem; text-align: center; margin-top: 6px; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.5px; }
+    .step.active + .step-label { color: var(--accent); }
+    .step.completed + .step-label { color: var(--accent); }
+    .servico-card, .barbeiro-card {
+      transition: all 0.3s; cursor: pointer;
+      border: 2px solid #dee2e6; border-radius: 12px;
+    }
+    .servico-card:hover, .barbeiro-card:hover { border-color: var(--accent); box-shadow: 0 5px 20px rgba(25,135,84,0.1); }
+    .servico-card.selected, .barbeiro-card.selected { border-color: var(--accent); background: #f0fff0; }
+    .horario-btn {
+      width: 100%; padding: 12px 8px; margin-bottom: 8px;
+      border: 2px solid #dee2e6; border-radius: 10px;
+      background: white; cursor: pointer; transition: all 0.2s;
+      font-weight: 500;
+    }
+    .horario-btn:hover { border-color: var(--accent); background: #f0fff0; transform: translateY(-2px); }
+    .horario-btn.selected { border-color: var(--accent); background: #d4edda; color: #155724; font-weight: 700; }
+    .horario-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; background: #f8f9fa; }
+    .content-step { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+    .resumo-box { background: linear-gradient(135deg, #f8f9fa, #fff); border: 1px solid #e9ecef; border-radius: 12px; }
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); display: none;
+      align-items: center; justify-content: center; z-index: 9998;
+    }
+    .loading-overlay.active { display: flex; }
+    @media (max-width: 576px) {
+      .step { width: 36px; height: 36px; font-size: 0.9rem; margin: 0 12px; }
+      .step-label { font-size: 0.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="text-center">
+      <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>
+      <p class="mt-2 text-muted">Processando...</p>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+      <a class="navbar-brand" href="/"><i class="bi bi-scissors"></i> Barbearia</a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/">Inicio</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/agendar">Agendar</a></li>
+          <li class="nav-item dropdown" id="nav-usuario-item" style="display:none;">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="nav-usuario-agendar">
+              <i class="bi bi-person-circle"></i> <span id="nav-usuario-nome"></span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="/meus-agendamentos"><i class="bi bi-calendar-check"></i> Meus Agendamentos</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="#" onclick="sair()"><i class="bi bi-box-arrow-left"></i> Sair</a></li>
+            </ul>
+          </li>
+          <li class="nav-item" id="nav-login-item"><a class="nav-link" href="/login">Entrar</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-5">
+    <h2 class="text-center mb-4 fw-bold"><i class="bi bi-calendar-check text-success"></i> Agende seu Horario</h2>
+    <p class="text-center text-muted mb-4" id="boas-vindas"></p>
+
+    <div class="step-indicator" id="stepIndicator"></div>
+
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+          <div class="card-body p-4 p-lg-5">
+
+            <div id="step1-content" class="content-step">
+              <h5 class="mb-4 fw-bold"><i class="bi bi-scissors text-success"></i> Escolha o servico</h5>
+              <div id="servicos-list" class="row g-3"></div>
+            </div>
+
+            <div id="step2-content" class="content-step" style="display:none;">
+              <h5 class="mb-4 fw-bold"><i class="bi bi-person-badge text-success"></i> Escolha o barbeiro</h5>
+              <div id="barbeiros-list" class="row g-3"></div>
+              <div class="mt-4">
+                <button class="btn btn-outline-secondary rounded-pill" onclick="voltarPasso(1)"><i class="bi bi-arrow-left"></i> Voltar</button>
+              </div>
+            </div>
+
+            <div id="step3-content" class="content-step" style="display:none;">
+              <h5 class="mb-4 fw-bold"><i class="bi bi-calendar-week text-success"></i> Escolha a data e horario</h5>
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Data</label>
+                <input type="date" class="form-control form-control-lg" id="data-input" onchange="carregarHorarios()">
+              </div>
+              <div id="horarios-container" class="mt-3">
+                <div class="alert alert-info d-flex align-items-center gap-2">
+                  <i class="bi bi-info-circle"></i> Selecione uma data para ver os horarios disponiveis
+                </div>
+              </div>
+              <div class="mt-3">
+                <button class="btn btn-outline-secondary rounded-pill" onclick="voltarPasso(2)"><i class="bi bi-arrow-left"></i> Voltar</button>
+              </div>
+            </div>
+
+            <div id="step4-content" class="content-step" style="display:none;">
+              <h5 class="mb-4 fw-bold"><i class="bi bi-check2-circle text-success"></i> Confirme seu agendamento</h5>
+              <div id="resumo-agendamento" class="mb-4 p-4 resumo-box rounded"></div>
+
+              <form id="form-confirmar">
+                <div class="mb-3">
+                  <label class="form-label fw-semibold">Observacao (opcional)</label>
+                  <textarea class="form-control form-control-lg" id="observacao-input" rows="2" placeholder="Algum detalhe? (ex: prefiro maquina mais baixa)" style="resize:none;"></textarea>
+                </div>
+                <div id="mensagem-erro" class="alert alert-danger d-none mt-3"></div>
+                <button type="submit" class="btn btn-success btn-lg w-100 mt-3 rounded-pill" id="btn-confirmar">
+                  <i class="bi bi-check-circle"></i> Confirmar Agendamento
+                </button>
+              </form>
+              <div class="mt-3">
+                <button class="btn btn-outline-secondary rounded-pill" onclick="voltarPasso(3)"><i class="bi bi-arrow-left"></i> Voltar</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const API = '/api';
+    let servicos = [], barbeiros = [], horariosDisponiveis = [];
+    let selecao = { servicoId: null, barbeiroId: null, data: null, hora: null };
+    let passoAtual = 1;
+    let usuarioLogado = null;
+    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+    function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+
+    function getToken() {
+      return localStorage.getItem('token');
+    }
+
+    function loading(show) {
+      document.getElementById('loadingOverlay').classList.toggle('active', show);
+    }
+
+    function toast(mensagem, tipo = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-bg-${tipo} border-0 show`;
+      toast.role = 'alert';
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body"><i class="bi bi-${tipo === 'success' ? 'check-circle' : tipo === 'danger' ? 'exclamation-circle' : 'info-circle'}"></i> ${mensagem}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 5000);
+    }
+
+    function sair() {
+      localStorage.removeItem('token');
+      localStorage.removeItem('usuario');
+      location.href = '/';
+    }
+
+    function atualizarPasso(passo) {
+      passoAtual = passo;
+      const steps = [
+        { el: 'step1', label: 'Servico' },
+        { el: 'step2', label: 'Barbeiro' },
+        { el: 'step3', label: 'Data/Hora' },
+        { el: 'step4', label: 'Confirmar' },
+      ];
+      const indicator = document.getElementById('stepIndicator');
+      indicator.innerHTML = steps.map((s, i) => {
+        const num = i + 1;
+        const cls = num === passo ? 'active' : num < passo ? 'completed' : '';
+        return `
+          <div class="step-wrapper">
+            <div style="display:flex; align-items:center; position:relative;">
+              <div class="step ${cls}" id="step${num}">${num}</div>
+              ${i < steps.length - 1 ? `<div class="step-connector ${num <= passo ? 'completed' : ''}" style="left:calc(50% + 22px); width:calc(100% - 44px);"></div>` : ''}
+            </div>
+            <div class="step-label">${s.label}</div>
+          </div>
+        `;
+      }).join('');
+
+      ['step1-content', 'step2-content', 'step3-content', 'step4-content'].forEach((id, i) => {
+        document.getElementById(id).style.display = (i + 1) === passo ? 'block' : 'none';
+      });
+      if (passo === 4) montarResumo();
+    }
+
+    function voltarPasso(passo) { atualizarPasso(passo); }
+
+    async function verificarLogin() {
+      const token = getToken();
+      if (!token) {
+        location.href = '/login?redirect=' + encodeURIComponent(location.pathname + location.search);
+        return false;
+      }
+      try {
+        const res = await fetch(`${API}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Token invalido');
+        usuarioLogado = await res.json();
+        document.getElementById('boas-vindas').textContent = `Bem-vindo(a), ${usuarioLogado.nome}!`;
+        document.getElementById('nav-usuario-item').style.display = '';
+        document.getElementById('nav-login-item').style.display = 'none';
+        document.getElementById('nav-usuario-nome').textContent = usuarioLogado.nome;
+        return true;
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        location.href = '/login?redirect=' + encodeURIComponent(location.pathname + location.search);
+        return false;
+      }
+    }
+
+    async function carregarDados() {
+      const logado = await verificarLogin();
+      if (!logado) return;
+
+      loading(true);
+      try {
+        const [servicosRes, barbeirosRes] = await Promise.all([
+          fetch(`${API}/servicos`),
+          fetch(`${API}/barbeiros`)
+        ]);
+        if (!servicosRes.ok || !barbeirosRes.ok) throw new Error('Erro ao conectar com o servidor');
+        servicos = await servicosRes.json();
+        barbeiros = await barbeirosRes.json();
+        renderizarServicos();
+        renderizarBarbeiros();
+
+        const servicoParam = new URLSearchParams(location.search).get('servico');
+        if (servicoParam) {
+          selecao.servicoId = Number(servicoParam);
+          const card = document.querySelector(`.servico-card[data-id="${servicoParam}"]`);
+          if (card) card.classList.add('selected');
+        }
+      } catch (err) {
+        toast('Erro ao carregar dados do servidor. Verifique se o backend esta rodando.', 'danger');
+      }
+      loading(false);
+      const hoje = new Date().toISOString().split('T')[0];
+      document.getElementById('data-input').setAttribute('min', hoje);
+      document.getElementById('data-input').value = hoje;
+      carregarHorarios();
+    }
+
+    function renderizarServicos() {
+      const container = document.getElementById('servicos-list');
+      container.innerHTML = servicos.map(s => `
+        <div class="col-md-6">
+          <div class="card servico-card h-100 ${selecao.servicoId === s.id ? 'selected' : ''}"
+               data-id="${s.id}" onclick="selecionarServico(${s.id}, this)">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title mb-0">${esc(s.nome)}</h5>
+                <span class="badge bg-success bg-opacity-10 text-success fw-bold fs-6">R$ ${esc(s.preco.toFixed(2))}</span>
+              </div>
+              <p class="card-text text-muted small">${esc(s.descricao || '')}</p>
+              <div class="d-flex align-items-center text-muted small">
+                <i class="bi bi-clock me-1"></i> ${esc(s.duracao)} min
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selecionarServico(id, el) {
+      selecao.servicoId = id;
+      document.querySelectorAll('.servico-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      atualizarPasso(2);
+    }
+
+    function renderizarBarbeiros() {
+      const container = document.getElementById('barbeiros-list');
+      container.innerHTML = barbeiros.map(b => {
+        const dias = b.dias_trabalho ? b.dias_trabalho.split(',').map(d => diasSemana[Number(d)]).join(', ') : '';
+        return `
+          <div class="col-md-6">
+            <div class="card barbeiro-card h-100 text-center ${selecao.barbeiroId === b.id ? 'selected' : ''}"
+                 data-id="${b.id}" onclick="selecionarBarbeiro(${b.id}, this)">
+              <div class="card-body py-4">
+                <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#198754,#20c997);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                  <i class="bi bi-person text-white" style="font-size:2rem;"></i>
+                </div>
+                <h5 class="fw-bold">${esc(b.nome)}</h5>
+                <p class="text-muted small mb-1"><i class="bi bi-calendar-week"></i> ${esc(dias)}</p>
+                <p class="text-muted small mb-0"><i class="bi bi-clock"></i> ${esc(b.hora_inicio)} - ${esc(b.hora_fim)}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selecionarBarbeiro(id, el) {
+      selecao.barbeiroId = id;
+      document.querySelectorAll('.barbeiro-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      atualizarPasso(3);
+      const data = document.getElementById('data-input').value;
+      if (data) carregarHorarios();
+    }
+
+    async function carregarHorarios() {
+      const data = document.getElementById('data-input').value;
+      if (!data || !selecao.barbeiroId || !selecao.servicoId) return;
+
+      selecao.data = data;
+      const container = document.getElementById('horarios-container');
+      container.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-success"></div><p class="mt-2 text-muted">Carregando horarios...</p></div>';
+
+      try {
+        const servico = servicos.find(s => s.id === selecao.servicoId);
+        const duracao = servico ? servico.duracao : 30;
+        const barbeiro = barbeiros.find(b => b.id === selecao.barbeiroId);
+        if (!barbeiro) throw new Error('Barbeiro nao encontrado');
+
+        const res = await fetch(`${API}/agendamentos/horarios?data=${data}&barbeiroId=${selecao.barbeiroId}`);
+        const horariosOcupados = await res.json();
+
+        const diaSemana = new Date(data + 'T12:00:00').getDay();
+        const diasTrabalho = barbeiro.dias_trabalho.split(',').map(Number);
+
+        if (!diasTrabalho.includes(diaSemana)) {
+          container.innerHTML = '<div class="alert alert-warning d-flex align-items-center gap-2"><i class="bi bi-exclamation-triangle"></i> Este barbeiro nao trabalha neste dia da semana</div>';
+          return;
+        }
+
+        const [hInicio, mInicio] = barbeiro.hora_inicio.split(':').map(Number);
+        const [hFim, mFim] = barbeiro.hora_fim.split(':').map(Number);
+        const inicioMin = hInicio * 60 + mInicio;
+        const fimMin = hFim * 60 + mFim;
+
+        horariosDisponiveis = [];
+        for (let min = inicioMin; min + duracao <= fimMin; min += duracao) {
+          const h = String(Math.floor(min / 60)).padStart(2, '0');
+          const m = String(min % 60).padStart(2, '0');
+          const horaStr = `${h}:${m}`;
+
+          const conflito = horariosOcupados.some(hOcupado => {
+            const [hO, mO] = hOcupado.split(':').map(Number);
+            const minOcupado = hO * 60 + mO;
+            return Math.abs(min - minOcupado) < duracao;
+          });
+
+          horariosDisponiveis.push({ hora: horaStr, disponivel: !conflito });
+        }
+
+        const hoje = new Date();
+        const dataSelecionada = new Date(data + 'T23:59:59');
+        const isHoje = dataSelecionada.toDateString() === hoje.toDateString();
+
+        if (horariosDisponiveis.length === 0) {
+          container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> Nenhum horario disponivel neste dia</div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <p class="text-muted mb-3 fw-semibold"><i class="bi bi-clock"></i> Horarios para ${esc(barbeiro.nome)} em <strong>${esc(new Date(data + 'T12:00:00').toLocaleDateString('pt-BR'))}</strong>:</p>
+          <div class="row g-2">
+            ${horariosDisponiveis.map(h => {
+              const passou = isHoje && h.hora <= `${String(hoje.getHours()).padStart(2,'0')}:${String(hoje.getMinutes()).padStart(2,'0')}`;
+              return `
+                <div class="col-4 col-md-3 col-lg-2">
+                  <button class="horario-btn ${selecao.hora === h.hora ? 'selected' : ''}"
+                          data-hora="${h.hora}"
+                          ${!h.disponivel || passou ? 'disabled' : ''}>
+                    ${esc(h.hora)}
+                    ${!h.disponivel ? '<br><small class="text-danger">Ocupado</small>' : ''}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <button class="btn btn-success mt-3 w-100 rounded-pill" id="btn-prosseguir" ${!selecao.hora ? 'disabled' : ''}
+                  onclick="atualizarPasso(4)">Prosseguir <i class="bi bi-arrow-right"></i></button>
+        `;
+        document.querySelectorAll('.horario-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            selecionarHorario(this.dataset.hora, this);
+          });
+        });
+      } catch (err) {
+        container.innerHTML = '<div class="alert alert-danger">Erro ao carregar horarios</div>';
+      }
+    }
+
+    function selecionarHorario(hora, el) {
+      selecao.hora = hora;
+      document.querySelectorAll('.horario-btn').forEach(b => b.classList.remove('selected'));
+      el.classList.add('selected');
+      document.getElementById('btn-prosseguir').disabled = false;
+    }
+
+    function montarResumo() {
+      const servico = servicos.find(s => s.id === selecao.servicoId);
+      const barbeiro = barbeiros.find(b => b.id === selecao.barbeiroId);
+      const dataObj = new Date(selecao.data + 'T12:00:00');
+      const dataFormatada = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      document.getElementById('resumo-agendamento').innerHTML = `
+        <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
+          <i class="bi bi-check-circle text-success" style="font-size:2rem;"></i>
+          <div>
+            <h6 class="mb-0 fw-bold">Revise os dados do seu agendamento</h6>
+            <small class="text-muted">Voce esta logado como <strong>${esc(usuarioLogado.nome)}</strong></small>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Servico</small>
+            <strong>${esc(servico.nome)}</strong>
+            <span class="text-success fw-bold ms-2">R$ ${esc(servico.preco.toFixed(2))}</span>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Barbeiro</small>
+            <strong>${esc(barbeiro.nome)}</strong>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Data</small>
+            <strong>${esc(dataFormatada)}</strong>
+          </div>
+          <div class="col-sm-6">
+            <small class="text-muted d-block">Horario</small>
+            <strong>${esc(selecao.hora)}</strong>
+          </div>
+        </div>
+      `;
+    }
+
+    document.getElementById('form-confirmar').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const btn = document.getElementById('btn-confirmar');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Agendando...';
+
+      const erroEl = document.getElementById('mensagem-erro');
+      erroEl.classList.add('d-none');
+      loading(true);
+
+      try {
+        const token = getToken();
+        const observacao = document.getElementById('observacao-input').value.trim();
+
+        const agendaRes = await fetch(`${API}/agendamentos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            data: selecao.data,
+            hora: selecao.hora,
+            barbeiroId: selecao.barbeiroId,
+            servicoId: selecao.servicoId,
+            observacao
+          })
+        });
+
+        if (!agendaRes.ok) {
+          const err = await agendaRes.json();
+          throw new Error(err.erro || 'Erro ao agendar');
+        }
+
+        loading(false);
+
+        const servicoNome = esc(servicos.find(s => s.id === selecao.servicoId)?.nome || '');
+        const barbeiroNome = esc(barbeiros.find(b => b.id === selecao.barbeiroId)?.nome || '');
+        const dataStr = esc(new Date(selecao.data + 'T12:00:00').toLocaleDateString('pt-BR'));
+        document.querySelector('.card-body').innerHTML = `
+          <div class="text-center py-5">
+            <div style="width:80px;height:80px;border-radius:50%;background:#d4edda;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+              <i class="bi bi-check-circle text-success" style="font-size:3rem;"></i>
+            </div>
+            <h3 class="fw-bold">Agendamento Confirmado!</h3>
+            <p class="text-muted mb-1">Seu horario foi reservado com sucesso.</p>
+            <p class="text-muted mb-4">${esc(usuarioLogado.nome)}, voce agendou <strong>${servicoNome}</strong> com <strong>${barbeiroNome}</strong> em <strong>${dataStr} as ${esc(selecao.hora)}</strong>.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+              <a href="/" class="btn btn-success rounded-pill px-4"><i class="bi bi-house"></i> Voltar ao Inicio</a>
+              <a href="/agendar" class="btn btn-outline-success rounded-pill px-4"><i class="bi bi-calendar-plus"></i> Novo Agendamento</a>
+            </div>
+          </div>
+        `;
+        toast('Agendamento realizado com sucesso!');
+      } catch (err) {
+        loading(false);
+        erroEl.textContent = err.message;
+        erroEl.classList.remove('d-none');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Confirmar Agendamento';
+        toast(err.message, 'danger');
+      }
+    });
+
+    carregarDados();
+    atualizarPasso(1);
+  </script>
+</body>
+</html>
