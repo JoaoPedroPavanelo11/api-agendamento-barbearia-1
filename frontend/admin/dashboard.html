@@ -22,6 +22,10 @@
     .sidebar .nav-link:hover { background: rgba(255,255,255,0.08); color: white; }
     .sidebar .nav-link.active { background: rgba(25,135,84,0.2); color: #00d68f; font-weight: 600; }
     .sidebar .nav-link i { margin-right: 10px; width: 20px; text-align: center; }
+    .sidebar .nav-link .notif-badge {
+      background: #dc3545; color: white; font-size: 0.65rem;
+      padding: 2px 6px; border-radius: 50px; margin-left: auto;
+    }
     .sidebar-brand { font-weight: 800; font-size: 1.3rem; letter-spacing: -0.5px; }
     .sidebar-divider { border-color: rgba(255,255,255,0.1); }
     .card-dashboard {
@@ -50,6 +54,19 @@
     .loading-overlay.active { display: flex; }
     .page-header { margin-bottom: 24px; }
     .page-header h2 { font-weight: 700; color: #1a1a2e; }
+    .notif-item {
+      border: none; border-radius: 12px; transition: all 0.2s;
+      cursor: pointer;
+    }
+    .notif-item:hover { background: #f8f9fa; }
+    .notif-item.nao-lida { border-left: 4px solid #198754; background: #f0fff0; }
+    .notif-item.lida { opacity: 0.7; }
+    .valor-card {
+      font-size: 1.8rem; font-weight: 800;
+    }
+    .percent-badge {
+      font-size: 0.8rem; padding: 4px 10px; border-radius: 50px;
+    }
     @media (max-width: 768px) { .sidebar { min-height: auto; position: static; } }
     @media (max-width: 991.98px) { .sidebar-mobile-toggle { display: block !important; } }
     @media (min-width: 992px) { .sidebar-mobile-toggle { display: none !important; } }
@@ -95,9 +112,14 @@
           <nav class="nav flex-column mb-auto">
             <a class="nav-link active" href="#" onclick="mudarAba('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</a>
             <a class="nav-link" href="#" onclick="mudarAba('agendamentos', this)"><i class="bi bi-calendar-check"></i> Agendamentos</a>
+            <a class="nav-link" href="#" onclick="mudarAba('financas', this)"><i class="bi bi-cash-stack"></i> Financas</a>
             <a class="nav-link" href="#" onclick="mudarAba('servicos', this)"><i class="bi bi-scissors"></i> Servicos</a>
             <a class="nav-link" href="#" onclick="mudarAba('barbeiros', this)"><i class="bi bi-people"></i> Barbeiros</a>
             <a class="nav-link" href="#" onclick="mudarAba('clientes', this)"><i class="bi bi-person-circle"></i> Clientes</a>
+            <a class="nav-link" href="#" onclick="mudarAba('notificacoes', this)" id="notif-nav-link">
+              <i class="bi bi-bell"></i> Notificacoes
+              <span class="notif-badge" id="notif-badge" style="display:none;">0</span>
+            </a>
           </nav>
           <hr class="sidebar-divider">
           <a class="nav-link text-danger" href="#" onclick="sair()"><i class="bi bi-box-arrow-left"></i> Sair</a>
@@ -141,6 +163,20 @@
           <div id="agendamentos-container"><p class="text-muted">Carregando...</p></div>
         </div>
 
+        <div id="aba-financas" class="aba">
+          <div class="page-header">
+            <h2>Financas</h2>
+            <p class="text-muted">Faturamento e repasses do dia</p>
+          </div>
+          <div class="row g-4" id="cards-financas"></div>
+          <div class="card border-0 shadow-sm rounded-4 mt-4">
+            <div class="card-header bg-white border-0 rounded-4 pt-4 pb-0">
+              <h5 class="fw-bold"><i class="bi bi-list-ul text-success"></i> Servicos Concluidos Hoje</h5>
+            </div>
+            <div class="card-body" id="faturamento-itens-container"><p class="text-muted">Carregando...</p></div>
+          </div>
+        </div>
+
         <div id="aba-servicos" class="aba">
           <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div>
@@ -169,6 +205,17 @@
             <p class="text-muted">Lista de clientes cadastrados</p>
           </div>
           <div id="clientes-container"><p class="text-muted">Carregando...</p></div>
+        </div>
+
+        <div id="aba-notificacoes" class="aba">
+          <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+              <h2>Notificacoes</h2>
+              <p class="text-muted">Alertas de novos agendamentos</p>
+            </div>
+            <button class="btn btn-outline-success rounded-pill px-3" onclick="marcarTodasNotificacoesLidas()"><i class="bi bi-check-all"></i> Marcar todas como lidas</button>
+          </div>
+          <div id="notificacoes-container"><p class="text-muted">Carregando...</p></div>
         </div>
 
       </div>
@@ -268,10 +315,13 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="/config.js"></script>
   <script>
     let servicos = [], barbeiros = [];
     let confirmCallback = null;
+    let notifNaoLidas = 0;
+    let socket = null;
 
     function loading(show) {
       document.getElementById('loadingOverlay').classList.toggle('active', show);
@@ -332,9 +382,11 @@
       if (el) el.classList.add('active');
       if (aba === 'dashboard') carregarDashboard();
       if (aba === 'agendamentos') carregarAgendamentos();
+      if (aba === 'financas') carregarFinancas();
       if (aba === 'servicos') carregarServicos();
       if (aba === 'barbeiros') carregarBarbeiros();
       if (aba === 'clientes') carregarClientes();
+      if (aba === 'notificacoes') carregarNotificacoes();
     }
 
     function sair() {
@@ -342,23 +394,53 @@
       location.href = '/admin/login.html';
     }
 
+    function conectarSocket() {
+      const socketUrl = API.replace('/api', '');
+      try {
+        socket = io(socketUrl || '', { transports: ['websocket', 'polling'] });
+        socket.on('connect', () => console.log('Socket conectado'));
+        socket.on('novo-agendamento', (dados) => {
+          notifNaoLidas++;
+          atualizarBadgeNotif();
+          const msg = dados.mensagem || `Novo agendamento: ${dados.cliente} as ${dados.horario}`;
+          toast(msg, 'info');
+          const audio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQpvAIGFhYWGhYWFhYaGhoaGhoaHh4eHh4eHh4iIiIiIiIiHiIiIiIiIiImJiYmJiYmJiYmJiYqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqK');
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        });
+      } catch (e) {
+        console.log('Socket nao disponivel');
+      }
+    }
+
+    function atualizarBadgeNotif() {
+      const badge = document.getElementById('notif-badge');
+      if (notifNaoLidas > 0) {
+        badge.style.display = 'inline';
+        badge.textContent = notifNaoLidas;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       getToken();
       const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
       document.getElementById('admin-nome').textContent = usuario.nome || 'Admin';
       carregarDashboard();
+      conectarSocket();
     });
 
     async function carregarDashboard() {
       loading(true);
       try {
-        const todosAgendamentos = await api('GET', '/agendamentos');
-        const hoje = new Date().toISOString().split('T')[0];
-        const agendamentosHoje = todosAgendamentos.filter(a => a.data === hoje);
-        const [servicosRes, usuariosRes] = await Promise.all([
+        const [agendamentosHojeRes, servicosRes, usuariosRes] = await Promise.all([
+          api('GET', '/admin/agendamentos/hoje'),
           api('GET', '/servicos/todos'),
           api('GET', '/usuarios')
         ]);
+
+        const pendentes = agendamentosHojeRes.filter(a => a.status === 'pendente').length;
 
         document.getElementById('cards-dashboard').innerHTML = `
           <div class="col-md-6 col-xl-3">
@@ -367,7 +449,7 @@
                 <div class="d-flex justify-content-between align-items-start">
                   <div>
                     <p class="text-muted mb-1 small fw-semibold text-uppercase">Agendamentos Hoje</p>
-                    <h2 class="fw-bold mb-0 text-success">${agendamentosHoje.length}</h2>
+                    <h2 class="fw-bold mb-0 text-success">${agendamentosHojeRes.length}</h2>
                   </div>
                   <div class="card-icon bg-success bg-opacity-10 text-success"><i class="bi bi-calendar-check"></i></div>
                 </div>
@@ -380,7 +462,7 @@
                 <div class="d-flex justify-content-between align-items-start">
                   <div>
                     <p class="text-muted mb-1 small fw-semibold text-uppercase">Pendentes</p>
-                    <h2 class="fw-bold mb-0 text-warning">${todosAgendamentos.filter(a => a.status === 'pendente').length}</h2>
+                    <h2 class="fw-bold mb-0 text-warning">${pendentes}</h2>
                   </div>
                   <div class="card-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-hourglass-split"></i></div>
                 </div>
@@ -415,7 +497,7 @@
           </div>
         `;
 
-        if (agendamentosHoje.length === 0) {
+        if (agendamentosHojeRes.length === 0) {
           document.getElementById('hoje-container').innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-calendar-check" style="font-size:2rem;"></i><p class="mt-2 mb-0">Nenhum agendamento para hoje</p></div>';
         } else {
           document.getElementById('hoje-container').innerHTML = `
@@ -423,14 +505,14 @@
               <table class="table table-hover align-middle">
                 <thead><tr><th>Hora</th><th>Cliente</th><th>Barbeiro</th><th>Servico</th><th>Status</th></tr></thead>
                 <tbody>
-                  ${agendamentosHoje.map(a => {
+                  ${agendamentosHojeRes.map(a => {
                     const statusBg = a.status === 'confirmado' ? 'success' : a.status === 'cancelado' ? 'danger' : a.status === 'concluido' ? 'secondary' : 'warning';
                     return `
                       <tr>
-                        <td class="fw-bold">${esc(a.hora)}</td>
-                        <td>${esc(a.cliente?.nome || '-')}</td>
-                        <td>${esc(a.barbeiro?.nome || '-')}</td>
-                        <td>${esc(a.servico?.nome || '-')}</td>
+                        <td class="fw-bold">${esc(a.horario)}</td>
+                        <td>${esc(a.cliente)}</td>
+                        <td>${esc(a.barbeiro)}</td>
+                        <td>${esc(a.servico)}</td>
                         <td><span class="badge bg-${statusBg} badge-status">${esc(a.status)}</span></td>
                       </tr>
                     `;
@@ -523,12 +605,86 @@
     function deletarAgendamento(id) {
       confirmar('Remover Agendamento', 'Tem certeza que deseja remover este agendamento? Esta acao nao pode ser desfeita.', async () => {
         try {
-          await api('DELETE', `/agendamentos/${id}`);
+          await api('DELETE', `/admin/agendamentos/${id}`);
           carregarAgendamentos();
           carregarDashboard();
           toast('Agendamento removido com sucesso!');
         } catch (err) { toast(err.message, 'danger'); }
       });
+    }
+
+    async function carregarFinancas() {
+      loading(true);
+      try {
+        const fat = await api('GET', '/admin/agendamentos/faturamento');
+        const dataFormatada = new Date().toLocaleDateString('pt-BR');
+
+        document.getElementById('cards-financas').innerHTML = `
+          <div class="col-md-4">
+            <div class="card card-dashboard shadow-sm h-100 border-start border-success border-4">
+              <div class="card-body">
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Total Bruto</p>
+                <h3 class="valor-card text-success mb-0">R$ ${fat.totalBruto}</h3>
+                <small class="text-muted">Faturamento total do dia</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card card-dashboard shadow-sm h-100 border-start border-primary border-4">
+              <div class="card-body">
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Dono (85%)</p>
+                <h3 class="valor-card text-primary mb-0">R$ ${fat.totalDono}</h3>
+                <small class="text-muted">Repasse para o estabelecimento</small>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="card card-dashboard shadow-sm h-100 border-start border-info border-4">
+              <div class="card-body">
+                <p class="text-muted mb-1 small fw-semibold text-uppercase">Barbeiros (15%)</p>
+                <h3 class="valor-card text-info mb-0">R$ ${fat.totalBarbeiro}</h3>
+                <small class="text-muted">Repasse para os profissionais</small>
+              </div>
+            </div>
+          </div>
+        `;
+
+        if (fat.itens.length === 0) {
+          document.getElementById('faturamento-itens-container').innerHTML = '<div class="text-center py-4 text-muted"><i class="bi bi-cash-stack" style="font-size:2rem;"></i><p class="mt-2 mb-0">Nenhum servico concluido hoje</p></div>';
+        } else {
+          document.getElementById('faturamento-itens-container').innerHTML = `
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead><tr><th>Horario</th><th>Barbeiro</th><th>Servico</th><th>Valor</th><th>Dono (85%)</th><th>Barbeiro (15%)</th></tr></thead>
+                <tbody>
+                  ${fat.itens.map(i => `
+                    <tr>
+                      <td class="fw-bold">${esc(i.horario)}</td>
+                      <td>${esc(i.barbeiro)}</td>
+                      <td>${esc(i.servico)}</td>
+                      <td class="fw-bold">R$ ${esc(i.valor.toFixed(2))}</td>
+                      <td class="text-primary fw-semibold">R$ ${esc(i.dono)}</td>
+                      <td class="text-info fw-semibold">R$ ${esc(i.barbeiroParte)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                  <tr>
+                    <td colspan="3" class="text-end">Total:</td>
+                    <td>R$ ${fat.totalBruto}</td>
+                    <td class="text-primary">R$ ${fat.totalDono}</td>
+                    <td class="text-info">R$ ${fat.totalBarbeiro}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          `;
+        }
+      } catch (err) {
+        document.getElementById('faturamento-itens-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
     }
 
     async function carregarServicos() {
@@ -737,6 +893,64 @@
         toast(err.message, 'danger');
       }
       loading(false);
+    }
+
+    async function carregarNotificacoes() {
+      loading(true);
+      try {
+        const notificacoes = await api('GET', '/admin/notificacoes');
+        const container = document.getElementById('notificacoes-container');
+
+        const naoLidas = notificacoes.filter(n => !n.lida).length;
+        notifNaoLidas = naoLidas;
+        atualizarBadgeNotif();
+
+        if (notificacoes.length === 0) {
+          container.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-bell" style="font-size:3rem;"></i><p class="mt-3 mb-0">Nenhuma notificacao</p></div>';
+          loading(false);
+          return;
+        }
+
+        container.innerHTML = notificacoes.map(n => `
+          <div class="card notif-item mb-2 ${n.lida ? 'lida' : 'nao-lida'}" onclick="${n.lida ? '' : `marcarNotificacaoLida(${n.id})`}">
+            <div class="card-body py-3 px-4">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-3">
+                  <i class="bi bi-bell${n.lida ? '' : '-fill'} ${n.lida ? 'text-muted' : 'text-success'}" style="font-size:1.3rem;"></i>
+                  <div>
+                    <p class="mb-0 ${n.lida ? '' : 'fw-semibold'}">${esc(n.mensagem)}</p>
+                    <small class="text-muted">${esc(new Date(n.createdAt).toLocaleString('pt-BR'))}</small>
+                  </div>
+                </div>
+                ${n.lida ? '<span class="badge bg-secondary bg-opacity-10 text-secondary">Lida</span>' : '<span class="badge bg-success">Nova</span>'}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('notificacoes-container').innerHTML = `<div class="alert alert-danger">${esc(err.message)}</div>`;
+        toast(err.message, 'danger');
+      }
+      loading(false);
+    }
+
+    async function marcarNotificacaoLida(id) {
+      try {
+        await api('PUT', `/admin/notificacoes/${id}/lida`);
+        notifNaoLidas = Math.max(0, notifNaoLidas - 1);
+        atualizarBadgeNotif();
+        carregarNotificacoes();
+      } catch (err) { toast(err.message, 'danger'); }
+    }
+
+    async function marcarTodasNotificacoesLidas() {
+      try {
+        await api('PUT', '/admin/notificacoes/ler-todas');
+        notifNaoLidas = 0;
+        atualizarBadgeNotif();
+        carregarNotificacoes();
+        toast('Todas as notificacoes marcadas como lidas!');
+      } catch (err) { toast(err.message, 'danger'); }
     }
   </script>
 </body>

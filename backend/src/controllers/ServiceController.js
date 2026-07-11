@@ -6,6 +6,7 @@
 
 const { Service } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
+const validate = require('../helpers/validate');
 
 /**
  * Lista apenas os servicos ativos (rota publica).
@@ -49,6 +50,17 @@ exports.listarTodos = async (req, res) => {
 exports.criar = async (req, res) => {
   try {
     const { nome, descricao, preco, duracao, ativo } = req.body;
+
+    const erro = validate.validar([
+      { fn: validate.campoObrigatorio, args: [nome, 'Nome'] },
+      { fn: validate.stringValida, args: [nome, 'Nome', 2, 100] },
+      { fn: validate.campoObrigatorio, args: [preco, 'Preco'] },
+      { fn: validate.valorPositivo, args: [preco, 'Preco'] },
+      { fn: validate.campoObrigatorio, args: [duracao, 'Duracao'] },
+      { fn: validate.inteiroPositivo, args: [duracao, 'Duracao'] },
+    ]);
+    if (erro) return res.status(400).json({ erro });
+
     const servico = await Service.create({ nome: stripHtml(nome), descricao: stripHtml(descricao || ''), preco, duracao, ativo });
     res.status(201).json(servico);
   } catch (error) {
@@ -72,9 +84,26 @@ exports.criar = async (req, res) => {
  */
 exports.atualizar = async (req, res) => {
   try {
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     const servico = await Service.findByPk(req.params.id);
     if (!servico) return res.status(404).json({ erro: 'Servico nao encontrado' });
     const { nome, descricao, preco, duracao, ativo } = req.body;
+
+    if (nome) {
+      const erroNome = validate.stringValida(nome, 'Nome', 2, 100);
+      if (erroNome) return res.status(400).json({ erro: erroNome });
+    }
+    if (preco !== undefined) {
+      const erroPreco = validate.valorPositivo(preco, 'Preco');
+      if (erroPreco) return res.status(400).json({ erro: erroPreco });
+    }
+    if (duracao !== undefined) {
+      const erroDuracao = validate.inteiroPositivo(duracao, 'Duracao');
+      if (erroDuracao) return res.status(400).json({ erro: erroDuracao });
+    }
+
     await servico.update({ nome: stripHtml(nome), descricao: stripHtml(descricao || ''), preco, duracao, ativo });
     res.json(servico);
   } catch (error) {
@@ -95,6 +124,9 @@ exports.atualizar = async (req, res) => {
  * @returns {Object} 404 - Servico nao encontrado
  */
 exports.deletar = async (req, res) => {
+  const erroId = validate.idValido(req.params.id);
+  if (erroId) return res.status(400).json({ erro: erroId });
+
   const servico = await Service.findByPk(req.params.id);
   if (!servico) return res.status(404).json({ erro: 'Servico nao encontrado' });
   await servico.destroy();

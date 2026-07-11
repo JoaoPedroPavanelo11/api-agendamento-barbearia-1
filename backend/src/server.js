@@ -6,12 +6,14 @@
  */
 
 const path = require('path');
+const http = require('http');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { sequelize } = require('./models');
 const { autenticar } = require('./middlewares/auth');
+const socketInit = require('./helpers/socket');
 
 const authRoutes = require('./routes/auth');
 const serviceRoutes = require('./routes/services');
@@ -19,11 +21,14 @@ const barberRoutes = require('./routes/barbers');
 const appointmentRoutes = require('./routes/appointments');
 const userRoutes = require('./routes/users');
 const clienteRoutes = require('./routes/cliente');
+const adminRoutes = require('./routes/admin');
 const seedRoutes = require('./routes/seed');
 const { seedarBanco } = require('./routes/seed');
 
 /** Instancia do servidor Express */
 const app = express();
+const server = http.createServer(app);
+const io = socketInit.init(server);
 const PORT = process.env.PORT || 3000;
 
 /* Middlewares globais */
@@ -40,6 +45,7 @@ app.use('/api/barbeiros', barberRoutes); // Barbeiros
 app.use('/api/agendamentos', appointmentRoutes); // Agendamentos
 app.use('/api/usuarios', userRoutes);   // Usuarios
 app.use('/api/cliente', clienteRoutes); // Cliente (meus agendamentos)
+app.use('/api/admin', adminRoutes);     // Admin
 app.use('/api', seedRoutes);            // Seed
 
 /** GET /api/health - Health check da API (publico) */
@@ -70,12 +76,28 @@ app.use((err, req, res, next) => {
  * @returns {Promise<void>}
  * @throws {Error} Caso ocorra erro ao sincronizar ou iniciar o servidor
  */
+async function rodarMigracoes() {
+  const { Umzug, SequelizeStorage } = require('umzug');
+  const umzug = new Umzug({
+    migrations: { glob: 'src/migrations/*.js' },
+    context: { sequelize, queryInterface: sequelize.queryInterface },
+    storage: new SequelizeStorage({ sequelize }),
+    logger: undefined,
+  });
+  const pendentes = await umzug.pending();
+  if (pendentes.length > 0) {
+    await umzug.up();
+    console.log(`Migracoes aplicadas: ${pendentes.length}`);
+  } else {
+    console.log('Banco de dados atualizado');
+  }
+}
+
 async function iniciar() {
   try {
-    await sequelize.sync();
-    console.log('Banco de dados sincronizado');
+    await rodarMigracoes();
     await seedarBanco();
-    app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
+    server.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
   } catch (error) {
     console.error('Erro ao iniciar:', error);
   }

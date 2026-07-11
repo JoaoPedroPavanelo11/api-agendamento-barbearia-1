@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -16,6 +18,11 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
     "sequelize": "^6.37.0",
-    "sqlite3": "^5.1.7"
+    "socket.io": "^4.8.3",
+    "sqlite3": "^5.1.7",
+    "umzug": "^3.8.3"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.5"
   }
 }

@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
+const validate = require('../helpers/validate');
 
 /**
  * Realiza o login do usuario.
@@ -28,6 +29,16 @@ const { stripHtml } = require('../helpers/sanitize');
 exports.login = async (req, res) => {
   try {
     const { email, senha } = req.body;
+
+    const erro = validate.validar([
+      { fn: validate.campoObrigatorio, args: [email, 'Email'] },
+      { fn: validate.campoObrigatorio, args: [senha, 'Senha'] },
+    ]);
+    if (erro) return res.status(400).json({ erro });
+
+    const emailErro = validate.emailValido(email);
+    if (emailErro) return res.status(400).json({ erro: emailErro });
+
     const usuario = await User.findOne({ where: { email } });
     if (!usuario) return res.status(401).json({ erro: 'Email ou senha incorretos' });
 
@@ -66,17 +77,17 @@ exports.login = async (req, res) => {
 exports.cadastrar = async (req, res) => {
   try {
     const { nome, email, senha, telefone } = req.body;
-    if (!nome || !email || !senha) {
-      return res.status(400).json({ erro: 'Nome, email e senha sao obrigatorios' });
-    }
+
+    const erro = validate.validar([
+      { fn: validate.campoObrigatorio, args: [nome, 'Nome'] },
+      { fn: validate.campoObrigatorio, args: [email, 'Email'] },
+      { fn: validate.campoObrigatorio, args: [senha, 'Senha'] },
+      { fn: validate.stringValida, args: [nome, 'Nome', 2, 100] },
+      { fn: validate.emailValido, args: [email] },
+    ]);
+    if (erro) return res.status(400).json({ erro });
     if (senha.length < 8) {
       return res.status(400).json({ erro: 'Senha deve ter no minimo 8 caracteres' });
-    }
-    if (nome.trim().length < 2) {
-      return res.status(400).json({ erro: 'Nome deve ter no minimo 2 caracteres' });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ erro: 'Email invalido' });
     }
     const existe = await User.findOne({ where: { email } });
     if (existe) return res.status(400).json({ erro: 'Email ja cadastrado' });

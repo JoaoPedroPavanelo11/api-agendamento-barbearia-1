@@ -6,6 +6,7 @@
 
 const { User } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
+const validate = require('../helpers/validate');
 
 /**
  * Lista todos os usuarios cadastrados (admin).
@@ -61,6 +62,9 @@ exports.buscar = async (req, res) => {
  */
 exports.atualizar = async (req, res) => {
   try {
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     if (req.usuario.role !== 'admin' && Number(req.usuario.id) !== Number(req.params.id)) {
       return res.status(403).json({ erro: 'Voce so pode editar seus proprios dados' });
     }
@@ -68,9 +72,17 @@ exports.atualizar = async (req, res) => {
     if (!usuario) return res.status(404).json({ erro: 'Usuario nao encontrado' });
 
     const dadosPermitidos = {};
-    if (req.body.nome) dadosPermitidos.nome = stripHtml(req.body.nome);
+    if (req.body.nome) {
+      const erroNome = validate.stringValida(req.body.nome, 'Nome', 2, 100);
+      if (erroNome) return res.status(400).json({ erro: erroNome });
+      dadosPermitidos.nome = stripHtml(req.body.nome);
+    }
     if (req.body.telefone) dadosPermitidos.telefone = stripHtml(req.body.telefone);
-    if (req.body.role && req.usuario.role === 'admin') dadosPermitidos.role = req.body.role;
+    if (req.body.role) {
+      if (req.usuario.role !== 'admin') return res.status(403).json({ erro: 'Apenas admin pode alterar a role' });
+      if (!['admin', 'cliente'].includes(req.body.role)) return res.status(400).json({ erro: 'Role invalida' });
+      dadosPermitidos.role = req.body.role;
+    }
 
     await usuario.update(dadosPermitidos);
     const { senha, ...usuarioSemSenha } = usuario.toJSON();

@@ -6,6 +6,7 @@
  */
 
 const { Appointment, Barber, Service, User } = require('../models');
+const validate = require('../helpers/validate');
 
 /**
  * Retorna os agendamentos do cliente logado.
@@ -48,6 +49,9 @@ exports.meusAgendamentos = async (req, res) => {
  */
 exports.cancelarAgendamento = async (req, res) => {
   try {
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     const agendamento = await Appointment.findByPk(req.params.id);
     if (!agendamento) return res.status(404).json({ erro: 'Agendamento nao encontrado' });
 

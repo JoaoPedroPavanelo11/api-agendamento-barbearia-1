@@ -5,8 +5,10 @@
  * @module controllers/AppointmentController
  */
 
-const { Appointment, User, Barber, Service } = require('../models');
+const { Appointment, User, Barber, Service, Notification } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
+const socketIO = require('../helpers/socket');
+const validate = require('../helpers/validate');
 
 /**
  * Lista todos os agendamentos (acesso admin).
@@ -64,6 +66,23 @@ exports.criar = async (req, res) => {
   try {
     const { data, hora, barbeiroId, servicoId, observacao } = req.body;
 
+    const erro = validate.validar([
+      { fn: validate.campoObrigatorio, args: [data, 'Data'] },
+      { fn: validate.campoObrigatorio, args: [hora, 'Hora'] },
+      { fn: validate.campoObrigatorio, args: [barbeiroId, 'Barbeiro'] },
+      { fn: validate.campoObrigatorio, args: [servicoId, 'Servico'] },
+      { fn: validate.inteiroPositivo, args: [barbeiroId, 'Barbeiro'] },
+      { fn: validate.inteiroPositivo, args: [servicoId, 'Servico'] },
+    ]);
+    if (erro) return res.status(400).json({ erro });
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      return res.status(400).json({ erro: 'Data deve estar no formato YYYY-MM-DD' });
+    }
+    if (!/^\d{2}:\d{2}$/.test(hora)) {
+      return res.status(400).json({ erro: 'Hora deve estar no formato HH:mm' });
+    }
+
     const servico = await Service.findByPk(servicoId);
     if (!servico) return res.status(400).json({ erro: 'Servico nao encontrado' });
 
@@ -99,10 +118,26 @@ exports.criar = async (req, res) => {
 
     const completo = await Appointment.findByPk(agendamento.id, {
       include: [
+        { model: User, as: 'cliente', attributes: ['id', 'nome'] },
         { model: Barber, as: 'barbeiro', attributes: ['id', 'nome'] },
         { model: Service, as: 'servico', attributes: ['id', 'nome', 'preco', 'duracao'] },
       ],
     });
+
+    const mensagem = `Novo agendamento: ${completo.cliente?.nome} as ${completo.hora} com ${completo.barbeiro?.nome} - ${completo.servico?.nome}`;
+    await Notification.create({ mensagem });
+
+    try {
+      const io = socketIO.getIO();
+      io.emit('novo-agendamento', {
+        id: completo.id,
+        cliente: completo.cliente?.nome,
+        horario: completo.hora,
+        barbeiro: completo.barbeiro?.nome,
+        servico: completo.servico?.nome,
+        mensagem,
+      });
+    } catch (e) { /* socket nao disponivel */ }
 
     res.status(201).json(completo);
   } catch (error) {
@@ -128,6 +163,12 @@ exports.criar = async (req, res) => {
 exports.atualizarStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const erroStatus = validate.statusValido(status);
+    if (erroStatus) return res.status(400).json({ erro: erroStatus });
+
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     const agendamento = await Appointment.findByPk(req.params.id);
     if (!agendamento) return res.status(404).json({ erro: 'Agendamento nao encontrado' });
     await agendamento.update({ status });
@@ -154,6 +195,9 @@ exports.atualizarStatus = async (req, res) => {
  */
 exports.cancelar = async (req, res) => {
   try {
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     const agendamento = await Appointment.findByPk(req.params.id);
     if (!agendamento) return res.status(404).json({ erro: 'Agendamento nao encontrado' });
 
@@ -181,6 +225,9 @@ exports.cancelar = async (req, res) => {
  * @returns {Object} 404 - Agendamento nao encontrado
  */
 exports.deletar = async (req, res) => {
+  const erroId = validate.idValido(req.params.id);
+  if (erroId) return res.status(400).json({ erro: erroId });
+
   const agendamento = await Appointment.findByPk(req.params.id);
   if (!agendamento) return res.status(404).json({ erro: 'Agendamento nao encontrado' });
   await agendamento.destroy();

@@ -6,6 +6,7 @@
 
 const { Barber } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
+const validate = require('../helpers/validate');
 
 /**
  * Lista apenas os barbeiros ativos (rota publica).
@@ -49,6 +50,13 @@ exports.listarTodos = async (req, res) => {
 exports.criar = async (req, res) => {
   try {
     const { nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo } = req.body;
+
+    const erro = validate.validar([
+      { fn: validate.campoObrigatorio, args: [nome, 'Nome'] },
+      { fn: validate.stringValida, args: [nome, 'Nome', 2, 100] },
+    ]);
+    if (erro) return res.status(400).json({ erro });
+
     const barbeiro = await Barber.create({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
     res.status(201).json(barbeiro);
   } catch (error) {
@@ -72,9 +80,18 @@ exports.criar = async (req, res) => {
  */
 exports.atualizar = async (req, res) => {
   try {
+    const erroId = validate.idValido(req.params.id);
+    if (erroId) return res.status(400).json({ erro: erroId });
+
     const barbeiro = await Barber.findByPk(req.params.id);
     if (!barbeiro) return res.status(404).json({ erro: 'Barbeiro nao encontrado' });
     const { nome, foto, dias_trabalho, hora_inicio, hora_fim, ativo } = req.body;
+
+    if (nome) {
+      const erroNome = validate.stringValida(nome, 'Nome', 2, 100);
+      if (erroNome) return res.status(400).json({ erro: erroNome });
+    }
+
     await barbeiro.update({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
     res.json(barbeiro);
   } catch (error) {
@@ -95,6 +112,9 @@ exports.atualizar = async (req, res) => {
  * @returns {Object} 404 - Barbeiro nao encontrado
  */
 exports.deletar = async (req, res) => {
+  const erroId = validate.idValido(req.params.id);
+  if (erroId) return res.status(400).json({ erro: erroId });
+
   const barbeiro = await Barber.findByPk(req.params.id);
   if (!barbeiro) return res.status(404).json({ erro: 'Barbeiro nao encontrado' });
   await barbeiro.destroy();
