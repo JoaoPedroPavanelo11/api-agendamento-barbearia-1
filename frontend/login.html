@@ -167,6 +167,11 @@
     }
 
     function redirectAposLogin() {
+      const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+      if (usuario.role === 'admin') {
+        location.href = '/admin/dashboard.html';
+        return;
+      }
       const destino = new URLSearchParams(location.search).get('redirect') || '/agendar';
       location.href = destino;
     }

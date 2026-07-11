@@ -89,6 +89,7 @@
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="/meus-agendamentos"><i class="bi bi-calendar-check"></i> Meus Agendamentos</a></li>
+              <li><a class="dropdown-item" href="/admin/dashboard.html" id="nav-admin-link" style="display:none;"><i class="bi bi-shield-lock"></i> Pagina ADM</a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item text-danger" href="#" onclick="sair()"><i class="bi bi-box-arrow-left"></i> Sair</a></li>
             </ul>
@@ -251,6 +252,9 @@
         document.getElementById('nav-usuario-item').style.display = '';
         document.getElementById('nav-login-item').style.display = 'none';
         document.getElementById('nav-usuario-nome').textContent = usuarioLogado.nome;
+        if (usuarioLogado.role === 'admin') {
+          document.getElementById('nav-admin-link').style.display = '';
+        }
         return true;
       } catch {
         localStorage.removeItem('token');
