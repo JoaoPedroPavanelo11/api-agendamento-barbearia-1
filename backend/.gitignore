@@ -1,6 +1,7 @@
 .env
 .env.example
 node_modules
+database.sqlite
 server_test_err.log
 server_test.log
 stderr.txt

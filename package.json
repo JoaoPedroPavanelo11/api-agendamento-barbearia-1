@@ -1,0 +1,11 @@
+{
+  "name": "barbearia-app",
+  "version": "1.0.0",
+  "description": "Barbearia - Sistema de Agendamento Online",
+  "scripts": {
+    "start": "cd backend && node src/server.js",
+    "dev": "cd backend && node --watch src/server.js",
+    "migrate": "cd backend && npx sequelize-cli db:migrate",
+    "migrate:undo": "cd backend && npx sequelize-cli db:migrate:undo"
+  }
+}
