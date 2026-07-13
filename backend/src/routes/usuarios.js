@@ -6,7 +6,7 @@
  */
 
 const { Router } = require('express');
-const UserController = require('../controllers/UserController');
+const UserController = require('../controllers/UsuarioController');
 const { autenticar, adminOnly } = require('../middlewares/auth');
 
 const router = Router();

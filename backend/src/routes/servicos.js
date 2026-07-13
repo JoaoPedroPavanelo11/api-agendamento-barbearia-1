@@ -6,7 +6,7 @@
  */
 
 const { Router } = require('express');
-const ServiceController = require('../controllers/ServiceController');
+const ServiceController = require('../controllers/ServicoController');
 const { autenticar, adminOnly } = require('../middlewares/auth');
 
 const router = Router();

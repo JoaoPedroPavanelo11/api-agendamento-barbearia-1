@@ -15,15 +15,15 @@ const { sequelize } = require('./models');
 const { autenticar } = require('./middlewares/auth');
 const socketInit = require('./helpers/socket');
 
-const authRoutes = require('./routes/auth');
-const serviceRoutes = require('./routes/services');
-const barberRoutes = require('./routes/barbers');
-const appointmentRoutes = require('./routes/appointments');
-const userRoutes = require('./routes/users');
+const authRoutes = require('./routes/autenticacao');
+const serviceRoutes = require('./routes/servicos');
+const barberRoutes = require('./routes/barbeiros');
+const appointmentRoutes = require('./routes/agendamentos');
+const userRoutes = require('./routes/usuarios');
 const clienteRoutes = require('./routes/cliente');
 const adminRoutes = require('./routes/admin');
-const seedRoutes = require('./routes/seed');
-const { seedarBanco } = require('./routes/seed');
+const seedRoutes = require('./routes/semente');
+const { seedarBanco } = require('./routes/semente');
 
 /** Instancia do servidor Express */
 const app = express();

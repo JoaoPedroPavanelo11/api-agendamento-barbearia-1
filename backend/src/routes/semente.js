@@ -9,7 +9,8 @@ async function seedarBanco() {
   const adminExiste = await User.findOne({ where: { email: 'admin@barbearia.com' } });
   if (adminExiste) return;
 
-  const senhaHash = await bcrypt.hash('admin123', 10);
+  const adminSenha = process.env.ADMIN_PASSWORD || 'admin123';
+  const senhaHash = await bcrypt.hash(adminSenha, 10);
   await User.create({
     nome: 'Administrador',
     email: 'admin@barbearia.com',
@@ -17,6 +18,10 @@ async function seedarBanco() {
     role: 'admin',
     telefone: '(11) 99999-0000',
   });
+
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn('⚠  ADMIN_PASSWORD nao definido. Usando senha padrao "admin123". Defina ADMIN_PASSWORD no .env para maior seguranca.');
+  }
 
   await Barber.bulkCreate([
     { nome: 'Carlos Silva', foto: '', dias_trabalho: '1,2,3,4,5,6', hora_inicio: '08:00', hora_fim: '18:00' },

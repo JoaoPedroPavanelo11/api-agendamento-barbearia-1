@@ -8,11 +8,11 @@
 const Sequelize = require('sequelize');
 const sequelize = require('../config/database');
 
-const User = require('./User')(sequelize, Sequelize);
-const Barber = require('./Barber')(sequelize, Sequelize);
-const Service = require('./Service')(sequelize, Sequelize);
-const Appointment = require('./Appointment')(sequelize, Sequelize);
-const Notification = require('./Notification')(sequelize, Sequelize);
+const User = require('./Usuario')(sequelize, Sequelize);
+const Barber = require('./Barbeiro')(sequelize, Sequelize);
+const Service = require('./Servico')(sequelize, Sequelize);
+const Appointment = require('./Agendamento')(sequelize, Sequelize);
+const Notification = require('./Notificacao')(sequelize, Sequelize);
 
 /* Relacionamentos */
 User.hasMany(Appointment, { foreignKey: 'clienteId' });

@@ -5,7 +5,7 @@
  * @module controllers/AppointmentController
  */
 
-const { Appointment, User, Barber, Service, Notification } = require('../models');
+const { sequelize, Appointment, User, Barber, Service, Notification } = require('../models');
 const { stripHtml } = require('../helpers/sanitize');
 const socketIO = require('../helpers/socket');
 const validate = require('../helpers/validate');
@@ -83,64 +83,94 @@ exports.criar = async (req, res) => {
       return res.status(400).json({ erro: 'Hora deve estar no formato HH:mm' });
     }
 
+    /* Validar data futura */
+    const agora = new Date();
+    const dataAgendamento = new Date(data + 'T' + hora);
+    if (dataAgendamento <= agora) {
+      return res.status(400).json({ erro: 'Nao e possivel agendar no passado' });
+    }
+
     const servico = await Service.findByPk(servicoId);
     if (!servico) return res.status(400).json({ erro: 'Servico nao encontrado' });
 
     const barbeiro = await Barber.findByPk(barbeiroId);
     if (!barbeiro) return res.status(400).json({ erro: 'Barbeiro nao encontrado' });
 
-    const conflitos = await Appointment.findAll({
-      where: { data, barbeiroId, status: ['pendente', 'confirmado'] },
-      include: [{ model: Service, as: 'servico', attributes: ['duracao'] }],
-    });
+    /* Validar horario comercial */
+    const diaSemana = dataAgendamento.getDay();
+    const diasTrabalho = (barbeiro.dias_trabalho || '').split(',').map(Number);
+    if (!diasTrabalho.includes(diaSemana)) {
+      return res.status(400).json({ erro: 'Barbeiro nao trabalha neste dia' });
+    }
 
     const [hHora, mHora] = hora.split(':').map(Number);
     const novoInicio = hHora * 60 + mHora;
     const novoFim = novoInicio + servico.duracao;
 
-    for (const c of conflitos) {
-      const [hC, mC] = c.hora.split(':').map(Number);
-      const inicioC = hC * 60 + mC;
-      const fimC = inicioC + (c.servico ? c.servico.duracao : 30);
-      if (novoInicio < fimC && novoFim > inicioC) {
-        return res.status(400).json({ erro: 'Horario conflita com outro agendamento' });
-      }
+    const [hInicio, mInicio] = (barbeiro.hora_inicio || '08:00').split(':').map(Number);
+    const [hFim, mFim] = (barbeiro.hora_fim || '18:00').split(':').map(Number);
+    const inicioExp = hInicio * 60 + mInicio;
+    const fimExp = hFim * 60 + mFim;
+
+    if (novoInicio < inicioExp || novoFim > fimExp) {
+      return res.status(400).json({ erro: 'Horario fora do expediente do barbeiro' });
     }
 
-    const agendamento = await Appointment.create({
-      data,
-      hora,
-      barbeiroId,
-      servicoId,
-      observacao: stripHtml(observacao || ''),
-      clienteId: req.usuario.id,
-    });
-
-    const completo = await Appointment.findByPk(agendamento.id, {
-      include: [
-        { model: User, as: 'cliente', attributes: ['id', 'nome'] },
-        { model: Barber, as: 'barbeiro', attributes: ['id', 'nome'] },
-        { model: Service, as: 'servico', attributes: ['id', 'nome', 'preco', 'duracao'] },
-      ],
-    });
-
-    const mensagem = `Novo agendamento: ${completo.cliente?.nome} as ${completo.hora} com ${completo.barbeiro?.nome} - ${completo.servico?.nome}`;
-    await Notification.create({ mensagem });
-
-    try {
-      const io = socketIO.getIO();
-      io.emit('novo-agendamento', {
-        id: completo.id,
-        cliente: completo.cliente?.nome,
-        horario: completo.hora,
-        barbeiro: completo.barbeiro?.nome,
-        servico: completo.servico?.nome,
-        mensagem,
+    /* Transaction para evitar race condition */
+    const completo = await sequelize.transaction(async (t) => {
+      const conflitos = await Appointment.findAll({
+        where: { data, barbeiroId, status: ['pendente', 'confirmado'] },
+        include: [{ model: Service, as: 'servico', attributes: ['duracao'] }],
+        transaction: t,
       });
-    } catch (e) { /* socket nao disponivel */ }
+
+      for (const c of conflitos) {
+        const [hC, mC] = c.hora.split(':').map(Number);
+        const inicioC = hC * 60 + mC;
+        const fimC = inicioC + (c.servico ? c.servico.duracao : 30);
+        if (novoInicio < fimC && novoFim > inicioC) {
+          throw new Error('Horario conflita com outro agendamento');
+        }
+      }
+
+      const agendamento = await Appointment.create({
+        data, hora, barbeiroId, servicoId,
+        observacao: stripHtml(observacao || ''),
+        clienteId: req.usuario.id,
+      }, { transaction: t });
+
+      const completo = await Appointment.findByPk(agendamento.id, {
+        include: [
+          { model: User, as: 'cliente', attributes: ['id', 'nome'] },
+          { model: Barber, as: 'barbeiro', attributes: ['id', 'nome'] },
+          { model: Service, as: 'servico', attributes: ['id', 'nome', 'preco', 'duracao'] },
+        ],
+        transaction: t,
+      });
+
+      const mensagem = `Novo agendamento: ${completo.cliente?.nome} as ${completo.hora} com ${completo.barbeiro?.nome} - ${completo.servico?.nome}`;
+      await Notification.create({ mensagem }, { transaction: t });
+
+      try {
+        const io = socketIO.getIO();
+        io.emit('novo-agendamento', {
+          id: completo.id,
+          cliente: completo.cliente?.nome,
+          horario: completo.hora,
+          barbeiro: completo.barbeiro?.nome,
+          servico: completo.servico?.nome,
+          mensagem,
+        });
+      } catch (e) { /* socket nao disponivel */ }
+
+      return completo;
+    });
 
     res.status(201).json(completo);
   } catch (error) {
+    if (error.message === 'Horario conflita com outro agendamento') {
+      return res.status(400).json({ erro: error.message });
+    }
     res.status(400).json({ erro: 'Erro ao agendar' });
   }
 };

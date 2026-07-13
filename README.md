@@ -62,9 +62,9 @@ Sistema completo de agendamento para barbearia com painel admin, controle de fat
 | Campo | Valor |
 |-------|-------|
 | Email | `admin@barbearia.com` |
-| Senha | `admin123` |
+| Senha | Definida pela variavel `ADMIN_PASSWORD` no `.env` (padrao: `admin123`) |
 
-Criado automaticamente pelo seed na inicializacao (`backend/src/routes/seed.js`).
+Criado automaticamente pelo seed na inicializacao. Altere a senha definindo `ADMIN_PASSWORD` no `.env`.
 
 ---
 
@@ -128,7 +128,7 @@ Todas as rotas admin exigem `autenticar` + `adminOnly`.
 
 Acessar `/admin` → redireciona para `/admin/login.html`
 
-**Login:** `admin@barbearia.com` / `admin123`
+**Login:** `admin@barbearia.com` (senha definida em `ADMIN_PASSWORD` no `.env`)
 
 **Abas do Dashboard:**
 
@@ -209,7 +209,13 @@ npm run migrate:undo   # Desfazer ultima migration
 # Backend
 cd backend
 npm install
-cp .env.example .env   # Configurar se necessario
+# Criar arquivo .env a partir do template (opcional, o servidor funciona sem)
+# copie o conteudo abaixo para um arquivo .env:
+# PORT=3000
+# JWT_SECRET=seu_segredo_aqui
+# JWT_EXPIRES_IN=7d
+# CORS_ORIGIN=http://localhost:3000
+# ADMIN_PASSWORD=
 npm start              # Inicia em http://localhost:3000
 
 # Frontend

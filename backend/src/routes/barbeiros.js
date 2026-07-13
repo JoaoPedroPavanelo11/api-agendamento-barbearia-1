@@ -6,7 +6,7 @@
  */
 
 const { Router } = require('express');
-const BarberController = require('../controllers/BarberController');
+const BarberController = require('../controllers/BarbeiroController');
 const { autenticar, adminOnly } = require('../middlewares/auth');
 
 const router = Router();

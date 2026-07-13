@@ -57,7 +57,7 @@ exports.criar = async (req, res) => {
     ]);
     if (erro) return res.status(400).json({ erro });
 
-    const barbeiro = await Barber.create({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
+    const barbeiro = await Barber.create({ nome: stripHtml(nome), foto: stripHtml(foto || ''), dias_trabalho, hora_inicio, hora_fim, ativo });
     res.status(201).json(barbeiro);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao criar barbeiro' });
@@ -92,7 +92,7 @@ exports.atualizar = async (req, res) => {
       if (erroNome) return res.status(400).json({ erro: erroNome });
     }
 
-    await barbeiro.update({ nome: stripHtml(nome), foto, dias_trabalho, hora_inicio, hora_fim, ativo });
+    await barbeiro.update({ nome: stripHtml(nome), foto: stripHtml(foto || ''), dias_trabalho, hora_inicio, hora_fim, ativo });
     res.json(barbeiro);
   } catch (error) {
     res.status(400).json({ erro: 'Erro ao atualizar' });
