@@ -6,3 +6,7 @@ server_test_err.log
 server_test.log
 stderr.txt
 stdout.txt
+*.sqlite
+*.log
+stderr*.txt
+stdout*.txt
